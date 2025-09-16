@@ -20,10 +20,10 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const exportRoutes = require('./routes/exportRoutes');
 
-
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb+srv://resilinked_db_admin:dDJwBzfpJvaBUQqt@resilinked.bddvynh.mongodb.net/ResiLinked?retryWrites=true&w=majority";
+  process.env.MONGODB_URI ||
+  "mongodb+srv://resilinked_db_admin:dDJwBzfpJvaBUQqt@resilinked.bddvynh.mongodb.net/ResiLinked?retryWrites=true&w=majority";
 
 // ✅ MongoDB Connection
 mongoose
@@ -34,20 +34,25 @@ mongoose
 // App Initialization
 const app = express();
 
-// ✅ CORS (allow React frontend in dev)
-// Support multiple domains in CLIENT_URL (comma-separated) with dynamic origin function
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000").split(',');
+// ✅ CORS setup (supports multiple domains)
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+  .split(",")
+  .map(origin => origin.trim());
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Always allow requests from allowed origins or with no origin
-      if (!origin || allowedOrigins.includes(origin)) {
+      console.log("🔎 Incoming request from:", origin); // Debug log
+      if (!origin) return callback(null, true); // Allow Postman/cURL with no origin
+      if (allowedOrigins.includes(origin)) {
+        console.log("✅ CORS allowed:", origin);
         return callback(null, true);
+      } else {
+        console.error("❌ CORS blocked:", origin, "Allowed:", allowedOrigins);
+        return callback(new Error("Not allowed by CORS"));
       }
-      return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
-    optionsSuccessStatus: 200 // For legacy browser support
   })
 );
 
@@ -77,7 +82,7 @@ app.get("/health", (req, res) => {
   res.status(200).json({
     status: "healthy",
     timestamp: new Date(),
-    corsAllowed: process.env.CLIENT_URL || "http://localhost:5173",
+    corsAllowed: allowedOrigins,
   });
 });
 
@@ -87,7 +92,7 @@ app.use(errorHandler);
 // Server listen
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 CORS: Allowing ${process.env.CLIENT_URL || "http://localhost:5173"}`);
+  console.log(`🌍 CORS: Allowing ${allowedOrigins}`);
   console.log("💓 Health check endpoint: /health");
 });
 
