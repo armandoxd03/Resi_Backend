@@ -40,15 +40,14 @@ const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000").split
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
+      // Always allow requests from allowed origins or with no origin
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
-      } else {
-        return callback(new Error('Not allowed by CORS'));
       }
+      return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
+    optionsSuccessStatus: 200 // For legacy browser support
   })
 );
 
