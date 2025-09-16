@@ -35,26 +35,35 @@ mongoose
 const app = express();
 
 // ✅ CORS setup (supports multiple domains)
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173,https://resi-frontend.vercel.app")
   .split(",")
   .map(origin => origin.trim());
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      console.log("🔎 Incoming request from:", origin); // Debug log
-      if (!origin) return callback(null, true); // Allow Postman/cURL with no origin
-      if (allowedOrigins.includes(origin)) {
-        console.log("✅ CORS allowed:", origin);
-        return callback(null, true);
-      } else {
-        console.error("❌ CORS blocked:", origin, "Allowed:", allowedOrigins);
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+// Enhanced CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin)) {
+      console.log("✅ CORS allowed:", origin);
+      return callback(null, true);
+    } else {
+      console.error("❌ CORS blocked:", origin, "Allowed:", allowedOrigins);
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
