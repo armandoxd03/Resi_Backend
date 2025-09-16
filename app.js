@@ -35,11 +35,19 @@ mongoose
 const app = express();
 
 // ✅ CORS (allow React frontend in dev)
-// Support multiple domains in CLIENT_URL (comma-separated)
+// Support multiple domains in CLIENT_URL (comma-separated) with dynamic origin function
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000").split(',');
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
