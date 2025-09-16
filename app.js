@@ -20,10 +20,10 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const exportRoutes = require('./routes/exportRoutes');
 
+
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI =
-  process.env.MONGODB_URI ||
-  "mongodb+srv://resilinked_db_admin:dDJwBzfpJvaBUQqt@resilinked.bddvynh.mongodb.net/ResiLinked?retryWrites=true&w=majority";
+  process.env.MONGODB_URI || "mongodb+srv://resilinked_db_admin:dDJwBzfpJvaBUQqt@resilinked.bddvynh.mongodb.net/ResiLinked?retryWrites=true&w=majority";
 
 // ✅ MongoDB Connection
 mongoose
@@ -34,37 +34,27 @@ mongoose
 // App Initialization
 const app = express();
 
-// ✅ CORS setup
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-  .split(",")
-  .map(origin => origin.trim());
+// ✅ CORS (allow React frontend in dev)
+app.use(
+  cors({
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:5173",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://localhost:8080",
+  "https://resi-frontend.vercel.app"
+    ],
+    credentials: true,
+  })
+);
 
-console.log("🌍 Allowed CORS origins:", allowedOrigins);
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow Postman, curl
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      console.error("❌ CORS blocked:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Origin", "Accept"],
-};
-
-app.use(cors(corsOptions)); // apply CORS globally
-
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ✅ Serve uploaded images
 app.use("/public", express.static(path.join(__dirname, "public")));
 
-// ✅ Main API routes (all prefixed with /api/*)
+// ✅ Main API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/jobs", jobRoutes);
@@ -84,18 +74,17 @@ app.get("/health", (req, res) => {
   res.status(200).json({
     status: "healthy",
     timestamp: new Date(),
-    corsAllowed: allowedOrigins,
-    requestOrigin: req.headers.origin || "none",
+    corsAllowed: process.env.CLIENT_URL || "http://localhost:5173",
   });
 });
 
 // ✅ Global error handler
 app.use(errorHandler);
 
-// Start server
+// Server listen
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 CORS: Allowing ${allowedOrigins}`);
+  console.log(`🌍 CORS: Allowing ${process.env.CLIENT_URL || "http://localhost:5173"}`);
   console.log("💓 Health check endpoint: /health");
 });
 
