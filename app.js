@@ -34,7 +34,7 @@ mongoose
 // App Initialization
 const app = express();
 
-// ✅ CORS setup (supports multiple domains)
+// ✅ CORS setup - FIXED VERSION
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173,https://resi-frontend.vercel.app")
   .split(",")
   .map(origin => origin.trim());
@@ -57,14 +57,15 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
-// Apply CORS middleware
+// Apply CORS middleware - MUST be before other middleware
 app.use(cors(corsOptions));
 
-// Handle preflight requests
+// Handle preflight requests for all routes
 app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '10mb' }));
@@ -72,6 +73,24 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ✅ Serve uploaded images
 app.use("/public", express.static(path.join(__dirname, "public")));
+
+// Add CORS headers manually as a fallback
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin, Accept');
+  }
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 // ✅ Main API routes
 app.use("/api/auth", authRoutes);
@@ -88,13 +107,20 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/export", exportRoutes);
 
-// ✅ Health check
+// ✅ Health check with CORS
 app.get("/health", (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  
   res.status(200).json({
     status: "healthy",
     timestamp: new Date(),
     corsAllowed: allowedOrigins,
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    requestOrigin: origin || 'none'
   });
 });
 
