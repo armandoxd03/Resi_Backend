@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const upload = require('../middleware/upload'); 
+const upload = require('../middleware/upload');
 const { registerValidation } = require('../middleware/validate');
 const auth = require('../middleware/auth');
+const { authLimiter } = require('../middleware/rateLimit');
 
 // Registration
 router.post('/register',
@@ -16,18 +17,18 @@ router.post('/register',
   authController.register
 );
 
-// Login
-router.post('/login', authController.login);
+// Login with rate limiting
+router.post('/login', authLimiter, authController.login);
 
 // Token verification ✅
 router.get('/verify', auth.verify, authController.verifyToken);
 
-// Password reset
-router.post('/reset/request', authController.resetRequest);
+// Password reset with rate limiting
+router.post('/reset/request', authLimiter, authController.resetRequest);
 router.post('/reset', authController.resetPassword);
 
-// Email verification
-router.post('/verify/resend', authController.resendVerification);
+// Email verification with rate limiting
+router.post('/verify/resend', authLimiter, authController.resendVerification);
 
 // Delete unverified
 router.post('/delete-unverified', authController.deleteUnverified);

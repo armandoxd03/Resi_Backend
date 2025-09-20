@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: resilinked-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        fromSecret: MONGODB_URI
+      - key: JWT_SECRET
+        fromSecret: JWT_SECRET
+      - key: EMAIL_USER
+        fromSecret: EMAIL_USER
+      - key: EMAIL_PASS
+        fromSecret: EMAIL_PASS
+      - key: CLIENT_URL
+        value: https://resi-frontend.vercel.app
+      - key: FRONTEND_URL
+        value: https://resi-frontend.vercel.app
+    healthCheckPath: /health
+    autoDeploy: true

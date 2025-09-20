@@ -1,5 +1,19 @@
 const User = require('../models/User');
 const { createNotification } = require('../utils/notificationHelper');
+const Activity = require('../models/Activity'); // ✅ ADDED
+
+// Helper function to create activity log
+const createActivityLog = async (activityData) => {
+  try {
+    const activity = new Activity(activityData);
+    await activity.save();
+    return activity;
+  } catch (error) {
+    console.error('Error creating activity log:', error);
+    // Don't throw to avoid breaking main functionality
+    return null;
+  }
+};
 
 exports.getProfile = async (req, res) => {
     try {
@@ -101,6 +115,18 @@ exports.editProfile = async (req, res) => {
                 type: 'profile_update',
                 message: 'Your profile was updated'
             });
+
+            // ✅ LOG ACTIVITY: Profile updated
+            await createActivityLog({
+              userId: user._id,
+              userName: `${user.firstName} ${user.lastName}`,
+              type: 'profile_update',
+              description: 'User updated their profile',
+              metadata: {
+                updatedFields: Object.keys(changes),
+                updateTime: new Date()
+              }
+            });
         }
 
         res.status(200).json({
@@ -154,6 +180,18 @@ exports.setGoal = async (req, res) => {
             message: `New goal set: ${description} (₱${targetAmount})`
         });
 
+        // ✅ LOG ACTIVITY: Goal created
+        await createActivityLog({
+          userId: user._id,
+          userName: `${user.firstName} ${user.lastName}`,
+          type: 'goal_created',
+          description: `User created a new goal: ${description}`,
+          metadata: {
+            targetAmount: targetAmount,
+            description: description
+          }
+        });
+
         res.status(200).json({
             message: "Goal set successfully",
             goals: user.goals,
@@ -196,6 +234,24 @@ exports.getWorkers = async (req, res) => {
                 .limit(limit),
             User.countDocuments(query)
         ]);
+
+        // ✅ LOG ACTIVITY: Workers search
+        await createActivityLog({
+          userId: req.user.id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          type: 'search',
+          description: 'User searched for workers',
+          metadata: {
+            searchParams: {
+              barangay: barangay || 'all',
+              skill: skill || 'all',
+              search: search || '',
+              page: page,
+              limit: limit,
+              results: total
+            }
+          }
+        });
 
         res.status(200).json({
             success: true,

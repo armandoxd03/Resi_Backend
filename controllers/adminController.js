@@ -1,4 +1,4 @@
-const fs = require('fs'); // needed for PDF deletion
+const fs = require('fs');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const Rating = require('../models/Rating');
@@ -218,6 +218,7 @@ exports.getAllJobs = async (req, res) => {
         });
     }
 };
+
 exports.deleteJob = async (req, res) => {
     try {
         const job = await Job.findByIdAndDelete(req.params.id);
@@ -293,11 +294,12 @@ exports.editJob = async (req, res) => {
     }
 };
 
-// ✅ Fixed: Download users as PDF
+// ✅ Fixed: Download users as PDF with proper error handling
 exports.downloadUsersPdf = async (req, res) => {
+    let filename;
     try {
         const users = await User.find().select('-password');
-        const filename = await generateUserReport(users); // FIX: added await
+        filename = await generateUserReport(users);
 
         await createNotification({
             recipient: req.user.id,
@@ -306,11 +308,31 @@ exports.downloadUsersPdf = async (req, res) => {
         });
 
         res.download(filename, `ResiLinked-Users-${new Date().toISOString().split('T')[0]}.pdf`, (err) => {
-            if (err) console.error('Download error:', err);
-            if (fs.existsSync(filename)) fs.unlinkSync(filename); // cleanup safely
+            if (err) {
+                console.error('Download error:', err);
+                if (fs.existsSync(filename)) {
+                    fs.unlinkSync(filename);
+                }
+            }
         });
+
+        // Set timeout to clean up file if download doesn't complete
+        setTimeout(() => {
+            if (filename && fs.existsSync(filename)) {
+                fs.unlinkSync(filename);
+            }
+        }, 300000); // 5 minutes
+
     } catch (err) {
-        res.status(500).json({ message: "Error generating PDF", error: err.message, alert: "Failed to generate user report" });
+        // Clean up on error
+        if (filename && fs.existsSync(filename)) {
+            fs.unlinkSync(filename);
+        }
+        res.status(500).json({ 
+            message: "Error generating PDF", 
+            error: err.message, 
+            alert: "Failed to generate user report" 
+        });
     }
 };
 
@@ -392,7 +414,7 @@ exports.getUserJobs = async (req, res) => {
 // Export all users as JSON/CSV/PDF
 exports.exportUsers = async (req, res) => {
     try {
-        const { format = 'json', filters } = req.query;
+        const { format = 'json', filters, limit = 1000 } = req.query;
         
         // Build query based on filters
         let query = {};
@@ -418,7 +440,13 @@ exports.exportUsers = async (req, res) => {
         if (filterParams.barangay) query.barangay = filterParams.barangay;
         if (filterParams.verified !== undefined) query.isVerified = filterParams.verified === 'true';
         
-        const users = await User.find(query).select('-password');
+        // Add limit to prevent memory issues
+        const queryOptions = {};
+        if (limit && !isNaN(limit)) {
+            queryOptions.limit = parseInt(limit);
+        }
+        
+        const users = await User.find(query, null, queryOptions).select('-password');
         
         if (format === 'csv') {
             const fields = [
@@ -551,7 +579,7 @@ function convertToCSV(data, fields) {
 // Export all jobs
 exports.exportJobs = async (req, res) => {
     try {
-        const { format = 'json', filters } = req.query;
+        const { format = 'json', filters, limit = 1000 } = req.query;
         
         let query = {};
         let filterParams = {};
@@ -576,7 +604,13 @@ exports.exportJobs = async (req, res) => {
         if (filterParams.minPrice) query.price = { ...query.price, $gte: parseFloat(filterParams.minPrice) };
         if (filterParams.maxPrice) query.price = { ...query.price, $lte: parseFloat(filterParams.maxPrice) };
         
-        const jobs = await Job.find(query).populate('postedBy', 'email firstName lastName');
+        // Add limit to prevent memory issues
+        const queryOptions = {};
+        if (limit && !isNaN(limit)) {
+            queryOptions.limit = parseInt(limit);
+        }
+        
+        const jobs = await Job.find(query, null, queryOptions).populate('postedBy', 'email firstName lastName');
         
         if (format === 'csv') {
             const fields = [
@@ -726,7 +760,13 @@ exports.exportJobs = async (req, res) => {
 // Export all ratings
 exports.exportRatings = async (req, res) => {
     try {
-        const ratings = await Rating.find().populate('user', 'email firstName lastName');
+        const { limit = 1000 } = req.query;
+        const queryOptions = {};
+        if (limit && !isNaN(limit)) {
+            queryOptions.limit = parseInt(limit);
+        }
+        
+        const ratings = await Rating.find({}, null, queryOptions).populate('user', 'email firstName lastName');
         res.status(200).json({ success: true, data: ratings });
     } catch (err) {
         res.status(500).json({ success: false, message: "Error exporting ratings", error: err.message });
