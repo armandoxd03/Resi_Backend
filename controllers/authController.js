@@ -213,7 +213,7 @@ exports.resetRequest = async (req, res) => {
 
         const user = await User.findOne({ email });
         if (user) {
-            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30m" });
+            const token = createAccessToken(user);
             const link = `${process.env.FRONTEND_URL}/reset-password/${token}`;
 
             await sendResetEmail(user.email, link);
