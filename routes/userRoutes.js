@@ -13,7 +13,7 @@ router.put('/me',
 );
 
 // Workers
-router.get('/workers', userController.getWorkers);
+router.get('/workers', auth.verify, userController.getWorkers);
 
 // Goals (Legacy)
 router.post('/goals', auth.verify, userController.setGoal);
