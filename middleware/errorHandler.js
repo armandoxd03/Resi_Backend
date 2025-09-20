@@ -1,30 +1,79 @@
-// middleware/verifyAdmin.js
-const User = require('../models/User');
+const errorHandler = (err, req, res, next) => {
+    console.error('Error:', {
+        message: err.message,
+        stack: err.stack,
+        url: req.originalUrl,
+        method: req.method,
+        ip: req.ip,
+        timestamp: new Date().toISOString()
+    });
 
-/**
- * ✅ Verify Admin Middleware
- * Allows only users with userType === "admin"
- */
-module.exports = async (req, res, next) => {
-  // Ensure req.user exists from previous token verification
-  if (!req.user || !req.user.id) {
-    return res.status(401).json({ message: "Unauthorized: no user info" });
-  }
-
-  try {
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    // Mongoose validation error
+    if (err.name === 'ValidationError') {
+        const errors = Object.values(err.errors).map(val => val.message);
+        return res.status(400).json({
+            success: false,
+            message: 'Validation Error',
+            errors,
+            alert: 'Please check your input data'
+        });
     }
 
-    if (user.userType !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
+    // Mongoose duplicate key error
+    if (err.code === 11000) {
+        const field = Object.keys(err.keyValue)[0];
+        return res.status(400).json({
+            success: false,
+            message: `Duplicate ${field} entered`,
+            alert: `This ${field} is already in use`
+        });
     }
 
-    next(); // user is admin, proceed
-  } catch (error) {
-    console.error("Admin middleware error:", error);
-    return res.status(500).json({ message: "Authorization check failed", error: error.message });
-  }
+    // JWT errors
+    if (err.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+            success: false,
+            message: 'Invalid token',
+            alert: 'Authentication failed. Please login again.'
+        });
+    }
+
+    if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({
+            success: false,
+            message: 'Token expired',
+            alert: 'Session expired. Please login again.'
+        });
+    }
+
+    // Rate limit error
+    if (err.statusCode === 429) {
+        return res.status(429).json({
+            success: false,
+            message: 'Too many requests',
+            alert: 'Too many requests, please try again later.'
+        });
+    }
+
+    // File system errors
+    if (err.code === 'ENOENT') {
+        return res.status(404).json({
+            success: false,
+            message: 'File not found',
+            alert: 'Requested resource not found'
+        });
+    }
+
+    // Default error
+    const statusCode = err.statusCode || 500;
+    const message = err.message || 'Internal Server Error';
+    
+    res.status(statusCode).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : message,
+        alert: 'An unexpected error occurred',
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
 };
+
+module.exports = errorHandler;

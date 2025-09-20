@@ -6,6 +6,20 @@ const crypto = require('crypto');
 const { createAccessToken } = require('../middleware/auth');
 const { sendVerificationEmail, sendResetEmail } = require('../utils/mailer');
 const { createNotification } = require('../utils/notificationHelper');
+const Activity = require('../models/Activity'); // ✅ ADDED
+
+// Helper function to create activity log
+const createActivityLog = async (activityData) => {
+  try {
+    const activity = new Activity(activityData);
+    await activity.save();
+    return activity;
+  } catch (error) {
+    console.error('Error creating activity log:', error);
+    // Don't throw to avoid breaking main functionality
+    return null;
+  }
+};
 
 // Register
 exports.register = async (req, res) => {
@@ -48,6 +62,18 @@ exports.register = async (req, res) => {
 
         await user.save();
 
+        // ✅ LOG ACTIVITY: User registration
+        await createActivityLog({
+          userId: user._id,
+          userName: `${user.firstName} ${user.lastName}`,
+          type: 'registration',
+          description: 'User registered an account',
+          metadata: {
+            email: user.email,
+            userType: user.userType
+          }
+        });
+
         await sendVerificationEmail(user.email, verificationToken);
 
         // Notify admin
@@ -57,6 +83,18 @@ exports.register = async (req, res) => {
                 recipient: adminUser._id,
                 type: 'admin_message',
                 message: `New user ${user.email} requires verification`
+            });
+
+            // ✅ LOG ACTIVITY: Admin notification
+            await createActivityLog({
+              userId: adminUser._id,
+              userName: `${adminUser.firstName} ${adminUser.lastName}`,
+              type: 'admin_action',
+              description: `Admin notified about new user ${user.email}`,
+              metadata: {
+                newUserEmail: user.email,
+                newUserName: `${user.firstName} ${user.lastName}`
+              }
             });
         }
 
@@ -83,8 +121,6 @@ exports.register = async (req, res) => {
     }
 };
 
-
-
 // Login
 exports.login = async (req, res) => {
     try {
@@ -110,11 +146,35 @@ exports.login = async (req, res) => {
             user.loginAttempts = (user.loginAttempts || 0) + 1;
             await user.save();
 
+            // ✅ LOG ACTIVITY: Failed login attempt
+            await createActivityLog({
+              userId: user._id,
+              userName: `${user.firstName} ${user.lastName}`,
+              type: 'security_alert',
+              description: `Failed login attempt (attempt ${user.loginAttempts})`,
+              metadata: {
+                attempt: user.loginAttempts,
+                email: email
+              }
+            });
+
             if (user.loginAttempts >= 3) {
                 await createNotification({
                     recipient: user._id,
                     type: 'security_alert',
                     message: 'Multiple failed login attempts detected'
+                });
+
+                // ✅ LOG ACTIVITY: Multiple failed attempts
+                await createActivityLog({
+                  userId: user._id,
+                  userName: `${user.firstName} ${user.lastName}`,
+                  type: 'security_alert',
+                  description: 'Multiple failed login attempts detected',
+                  metadata: {
+                    attempts: user.loginAttempts,
+                    locked: user.loginAttempts >= 5
+                  }
                 });
             }
 
@@ -127,6 +187,18 @@ exports.login = async (req, res) => {
         }
 
         if (!user.isVerified) {
+            // ✅ LOG ACTIVITY: Attempt to login unverified account
+            await createActivityLog({
+              userId: user._id,
+              userName: `${user.firstName} ${user.lastName}`,
+              type: 'email_verification',
+              description: 'Attempt to login with unverified account',
+              metadata: {
+                email: user.email,
+                verified: false
+              }
+            });
+
             return res.status(403).json({
                 success: false,
                 message: "Account not verified",
@@ -144,6 +216,18 @@ exports.login = async (req, res) => {
             recipient: user._id,
             type: 'security_alert',
             message: 'New login detected'
+        });
+
+        // ✅ LOG ACTIVITY: Successful login
+        await createActivityLog({
+          userId: user._id,
+          userName: `${user.firstName} ${user.lastName}`,
+          type: 'login',
+          description: 'User logged in successfully',
+          metadata: {
+            loginTime: new Date(),
+            userType: user.userType
+          }
         });
 
         res.status(200).json({
@@ -223,6 +307,18 @@ exports.resetRequest = async (req, res) => {
                 type: 'security_alert',
                 message: 'Password reset requested'
             });
+
+            // ✅ LOG ACTIVITY: Password reset requested
+            await createActivityLog({
+              userId: user._id,
+              userName: `${user.firstName} ${user.lastName}`,
+              type: 'password_reset',
+              description: 'Password reset requested',
+              metadata: {
+                email: user.email,
+                resetRequested: new Date()
+              }
+            });
         }
 
         res.status(200).json({
@@ -287,6 +383,17 @@ exports.resetPassword = async (req, res) => {
             message: 'Your password was successfully reset'
         });
 
+        // ✅ LOG ACTIVITY: Password reset successful
+        await createActivityLog({
+          userId: user._id,
+          userName: `${user.firstName} ${user.lastName}`,
+          type: 'password_reset',
+          description: 'Password successfully reset',
+          metadata: {
+            resetTime: new Date()
+          }
+        });
+
         res.status(200).json({
             success: true,
             message: "Password updated successfully",
@@ -349,6 +456,18 @@ exports.resendVerification = async (req, res) => {
 
         await sendVerificationEmail(user.email, user.verificationToken);
 
+        // ✅ LOG ACTIVITY: Verification email resent
+        await createActivityLog({
+          userId: user._id,
+          userName: `${user.firstName} ${user.lastName}`,
+          type: 'email_verification',
+          description: 'Verification email resent',
+          metadata: {
+            email: user.email,
+            resent: new Date()
+          }
+        });
+
         res.status(200).json({
             success: true,
             message: "Verification email resent",
@@ -365,7 +484,6 @@ exports.resendVerification = async (req, res) => {
         });
     }
 };
-
 
 // Verify Token
 exports.verifyToken = async (req, res) => {
@@ -399,6 +517,18 @@ exports.deleteUnverified = async (req, res) => {
         alert: "No unverified user found with that email"
       });
     }
+
+    // ✅ LOG ACTIVITY: Unverified account deleted
+    await createActivityLog({
+      userId: user._id,
+      userName: `${user.firstName} ${user.lastName}`,
+      type: 'admin_action',
+      description: 'Unverified account deleted',
+      metadata: {
+        email: user.email,
+        deletionTime: new Date()
+      }
+    });
 
     res.status(200).json({
       message: "Unverified account deleted successfully",

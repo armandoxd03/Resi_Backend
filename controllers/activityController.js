@@ -1,11 +1,12 @@
 const Activity = require('../models/Activity');
 const User = require('../models/User');
 
+// Get user activity - NOW USING REAL DATA
 exports.getUserActivity = async (req, res) => {
   try {
     const { userId } = req.params;
     const { limit = 50 } = req.query;
-    
+   
     // Check if user exists
     const user = await User.findById(userId);
     if (!user) {
@@ -13,40 +14,25 @@ exports.getUserActivity = async (req, res) => {
         message: "User not found"
       });
     }
-    
-    // For now, we'll return mock data since we don't have an Activity model
-    // In a real implementation, you would query the Activity collection
-    const mockActivities = [
-      {
-        _id: '1',
-        userId: userId,
-        type: 'registration',
-        description: 'User registered an account',
-        timestamp: user.createdAt
+   
+    // ✅ NOW USING REAL ACTIVITY DATA instead of mock data
+    const activities = await Activity.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+   
+    res.status(200).json({
+      success: true,
+      data: activities,
+      user: {
+        id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email
       },
-      {
-        _id: '2',
-        userId: userId,
-        type: 'profile_update',
-        description: 'User updated their profile',
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
-      },
-      {
-        _id: '3',
-        userId: userId,
-        type: 'job_apply',
-        description: 'User applied for a job',
-        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
-      }
-    ];
-    
-    // If you have an Activity model, you would use this instead:
-    // const activity = await Activity.find({ userId })
-    //   .sort({ timestamp: -1 })
-    //   .limit(parseInt(limit));
-    
-    res.status(200).json(mockActivities);
+      total: activities.length,
+      message: `Found ${activities.length} activities for user`
+    });
   } catch (err) {
+    console.error('Error fetching user activity:', err);
     res.status(500).json({
       message: "Error fetching user activity",
       error: err.message
@@ -54,43 +40,172 @@ exports.getUserActivity = async (req, res) => {
   }
 };
 
+// Get recent activity - NOW USING REAL DATA
 exports.getRecentActivity = async (req, res) => {
   try {
     const { limit = 20 } = req.query;
-    
-    // Mock data - replace with actual Activity model queries
-    const mockActivities = [
-      {
-        _id: '1',
-        userId: 'user1',
-        userName: 'John Doe',
-        type: 'registration',
-        description: 'New user registered',
-        timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000) // 1 hour ago
-      },
-      {
-        _id: '2',
-        userId: 'user2',
-        userName: 'Jane Smith',
-        type: 'job_post',
-        description: 'New job posted: House Cleaning',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
-      },
-      {
-        _id: '3',
-        userId: 'user3',
-        userName: 'Mike Johnson',
-        type: 'job_apply',
-        description: 'User applied for a painting job',
-        timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000) // 3 hours ago
-      }
-    ];
-    
-    res.status(200).json(mockActivities);
+   
+    // ✅ NOW USING REAL ACTIVITY DATA instead of mock data
+    const activities = await Activity.find()
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('userId', 'firstName lastName email');
+   
+    res.status(200).json({
+      success: true,
+      data: activities,
+      total: activities.length,
+      message: `Found ${activities.length} recent activities`
+    });
   } catch (err) {
+    console.error('Error fetching recent activity:', err);
     res.status(500).json({
       message: "Error fetching recent activity",
       error: err.message
     });
+  }
+};
+
+// Create activity log (utility function for other controllers)
+exports.createActivity = async (activityData) => {
+  try {
+    const activity = new Activity(activityData);
+    await activity.save();
+    return activity;
+  } catch (error) {
+    console.error('Error creating activity:', error);
+    // Don't throw to avoid breaking main functionality
+    return null;
+  }
+};
+
+// Get activity statistics
+exports.getActivityStats = async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const stats = await Activity.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: '$type',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      stats: stats,
+      period: {
+        start: startDate,
+        end: new Date(),
+        days: parseInt(days)
+      },
+      message: `Activity statistics for the last ${days} days`
+    });
+  } catch (err) {
+    console.error('Error fetching activity statistics:', err);
+    res.status(500).json({
+      message: "Error fetching activity statistics",
+      error: err.message
+    });
+  }
+};
+
+// Log user registration activity
+exports.logRegistration = async (userId, userData) => {
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      await this.createActivity({
+        userId: user._id,
+        userName: `${user.firstName} ${user.lastName}`,
+        type: 'registration',
+        description: 'User registered an account',
+        metadata: {
+          email: user.email,
+          userType: user.userType
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error logging registration:', error);
+  }
+};
+
+// Log profile update activity
+exports.logProfileUpdate = async (userId, updatedFields) => {
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      await this.createActivity({
+        userId: user._id,
+        userName: `${user.firstName} ${user.lastName}`,
+        type: 'profile_update',
+        description: 'User updated their profile',
+        metadata: {
+          updatedFields: Object.keys(updatedFields)
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error logging profile update:', error);
+  }
+};
+
+// Log job post activity
+exports.logJobPost = async (userId, jobId, jobTitle) => {
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      await this.createActivity({
+        userId: user._id,
+        userName: `${user.firstName} ${user.lastName}`,
+        type: 'job_post',
+        description: `User posted a new job: ${jobTitle}`,
+        relatedEntity: jobId,
+        entityType: 'Job',
+        metadata: {
+          jobTitle: jobTitle
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error logging job post:', error);
+  }
+};
+
+// Log job application activity
+exports.logJobApply = async (userId, jobId, jobTitle, employerId) => {
+  try {
+    const user = await User.findById(userId);
+    const employer = await User.findById(employerId);
+    
+    if (user && employer) {
+      await this.createActivity({
+        userId: user._id,
+        userName: `${user.firstName} ${user.lastName}`,
+        type: 'job_apply',
+        description: `User applied for job: ${jobTitle}`,
+        relatedEntity: jobId,
+        entityType: 'Job',
+        metadata: {
+          jobTitle: jobTitle,
+          employer: `${employer.firstName} ${employer.lastName}`
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error logging job application:', error);
   }
 };
