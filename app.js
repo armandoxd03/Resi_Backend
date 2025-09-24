@@ -40,7 +40,10 @@ mongoose
   });
 
 // App Initialization
+
 const app = express();
+// ✅ Trust proxy for correct IP handling (rate-limit, X-Forwarded-For, etc.)
+app.set('trust proxy', 1);
 
 // ✅ CORS (allow React frontend in dev)
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',');
