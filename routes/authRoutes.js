@@ -8,6 +8,7 @@ const { authLimiter } = require('../middleware/rateLimit');
 
 // Registration
 router.post('/register',
+  authLimiter,
   upload.fields([
     { name: 'idFrontImage', maxCount: 1 },
     { name: 'idBackImage', maxCount: 1 },
@@ -20,7 +21,7 @@ router.post('/register',
 // Login with rate limiting
 router.post('/login', authLimiter, authController.login);
 
-// Token verification ✅
+// Token verification
 router.get('/verify', auth.verify, authController.verifyToken);
 
 // Password reset with rate limiting
