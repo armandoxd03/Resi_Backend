@@ -39,8 +39,11 @@ mongoose
     process.exit(1);
   });
 
+
 // App Initialization
 const app = express();
+// Enable trust proxy for correct client IP detection (important for rate limiting)
+app.set('trust proxy', 1);
 
 // ✅ CORS (allow React frontend in dev)
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',');
