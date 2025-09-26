@@ -6,6 +6,12 @@ const auth = require('../middleware/auth');
 // Barangay stats
 router.get('/barangay', auth.verify, dashboardController.barangayStats);
 
+<<<<<<< HEAD
+=======
+// Employee dashboard stats
+router.get('/employee/:id/stats', auth.verify, dashboardController.employeeDashboardStats);
+
+>>>>>>> eba9001 (update)
 // User search/PDF
 router.get('/search-users', auth.verify, dashboardController.searchUsers);
 router.get('/download-users-pdf', auth.verify, dashboardController.downloadUsersPdf);
