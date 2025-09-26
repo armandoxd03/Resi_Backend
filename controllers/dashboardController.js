@@ -6,6 +6,33 @@ const { generateUserReport, generateJobReport, generateRatingReport } = require(
 const path = require('path');
 const fs = require('fs');
 
+<<<<<<< HEAD
+=======
+// Get employee dashboard stats
+exports.employeeDashboardStats = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        // Applications: jobs where user applied
+        const applicationsCount = await Job.countDocuments({ 'applicants.user': userId });
+        // Job Offers: jobs assigned to user
+        const jobOffersCount = await Job.countDocuments({ assignedTo: userId });
+        // Profile Views: assuming a field in User model, fallback to 0
+        const user = await User.findById(userId);
+        const profileViews = user?.profileViews || 0;
+        // Average Rating: ratings where user is ratee
+        const ratings = await Rating.find({ ratee: userId });
+        const averageRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) : 0;
+        res.json({
+            applications: applicationsCount,
+            jobOffers: jobOffersCount,
+            profileViews,
+            averageRating: Number(averageRating.toFixed(1))
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching dashboard stats", error: err.message });
+    }
+};
+>>>>>>> eba9001 (update)
 exports.barangayStats = async (req, res) => { /* ...same as before... */ };
 
 // Search/filter users by barangay/keyword
