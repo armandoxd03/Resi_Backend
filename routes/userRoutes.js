@@ -20,4 +20,32 @@ router.get('/workers', userController.getWorkers);
 // Goals (Legacy)
 router.post('/goals', auth.verify, userController.setGoal);
 
+// Public: Get user by ID (always returns a user object, never 404)
+const User = require('../models/User');
+router.get('/:id', async (req, res) => {
+    let user = null;
+    try {
+        user = await User.findById(req.params.id).select('-password');
+    } catch (err) {
+        // ignore error, will return default user
+    }
+    if (!user) {
+        user = {
+            _id: req.params.id,
+            firstName: '',
+            lastName: '',
+            email: '',
+            userType: '',
+            isVerified: false,
+            notificationPreferences: { job: false, message: false },
+            languagePreference: '',
+        };
+    }
+    res.status(200).json({
+        success: true,
+        user,
+        alert: user.firstName ? "User retrieved successfully" : "Default user returned (not found)"
+    });
+});
+
 module.exports = router;

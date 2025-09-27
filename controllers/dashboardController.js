@@ -1,3 +1,12 @@
+// Placeholder for employee dashboard stats
+exports.employeeDashboardStats = async (req, res) => {
+    try {
+        // TODO: Implement actual stats logic
+        res.status(200).json({ message: 'Employee dashboard stats placeholder' });
+    } catch (err) {
+        res.status(500).json({ message: 'Error fetching employee dashboard stats', error: err.message });
+    }
+};
 const User = require('../models/User');
 const Job = require('../models/Job');
 const Rating = require('../models/Rating');
