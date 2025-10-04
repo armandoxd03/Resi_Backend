@@ -32,6 +32,13 @@ exports.getDashboardStats = async (req, res) => {
       createdAt: a.createdAt
     }));
 
+    // Real job stats
+    const completedJobs = await Job.countDocuments({ completed: true });
+    const activeJobs = await Job.countDocuments({ isOpen: true, completed: false });
+    const jobPrices = await Job.find({}, 'price').lean();
+    const totalValue = jobPrices.reduce((sum, job) => sum + (job.price || 0), 0);
+    const averagePrice = jobPrices.length > 0 ? Math.round(totalValue / jobPrices.length) : 0;
+
     res.status(200).json({
       totalUsers,
       usersTrend: '+12% this month',
@@ -52,10 +59,10 @@ exports.getDashboardStats = async (req, res) => {
         percentage: 60
       },
       jobStats: {
-        active: Math.floor(totalJobs * 0.5),
-        completed: Math.floor(totalJobs * 0.5),
-        totalValue: 500000,
-        averagePrice: 2500
+        active: activeJobs,
+        completed: completedJobs,
+        totalValue,
+        averagePrice
       },
       popularBarangays,
       recentActivity
