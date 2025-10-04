@@ -12,16 +12,50 @@ exports.getDashboardStats = async (req, res) => {
       Report.countDocuments()
     ]);
 
-    res.status(200).json({ 
-      totalUsers, 
-      totalJobs, 
-      totalRatings, 
-      totalReports 
+    // Mock/sample analytics data for frontend
+    res.status(200).json({
+      totalUsers,
+      usersTrend: '+12% this month',
+      totalJobs,
+      jobsTrend: '+8% this month',
+      totalRatings,
+      ratingsTrend: '+15% this month',
+      totalReports,
+      reportsTrend: '-5% this month',
+      userDistribution: {
+        employee: Math.floor(totalUsers * 0.7),
+        employer: Math.floor(totalUsers * 0.3),
+        employeePercentage: 70,
+        employerPercentage: 30
+      },
+      verifiedUsers: {
+        count: Math.floor(totalUsers * 0.6),
+        percentage: 60
+      },
+      jobStats: {
+        active: Math.floor(totalJobs * 0.5),
+        completed: Math.floor(totalJobs * 0.5),
+        totalValue: 500000,
+        averagePrice: 2500
+      },
+      popularBarangays: [
+        { barangay: 'Barangay 1', count: 42 },
+        { barangay: 'Barangay 2', count: 37 },
+        { barangay: 'Barangay 3', count: 29 },
+        { barangay: 'Barangay 4', count: 21 },
+        { barangay: 'Barangay 5', count: 18 }
+      ],
+      recentActivity: [
+        { _id: '1', type: 'user', description: 'New user registered', createdAt: new Date() },
+        { _id: '2', type: 'job', description: 'Job posted: Plumbing', createdAt: new Date() },
+        { _id: '3', type: 'user', description: 'User verified', createdAt: new Date() },
+        { _id: '4', type: 'job', description: 'Job completed: Carpentry', createdAt: new Date() }
+      ]
     });
   } catch (err) {
-    res.status(500).json({ 
-      message: "Error fetching dashboard stats", 
-      error: err.message 
+    res.status(500).json({
+      message: "Error fetching dashboard stats",
+      error: err.message
     });
   }
 };
