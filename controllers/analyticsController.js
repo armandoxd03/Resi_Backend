@@ -12,7 +12,26 @@ exports.getDashboardStats = async (req, res) => {
       Report.countDocuments()
     ]);
 
-    // Mock/sample analytics data for frontend
+    // Query popular barangays from jobs
+    const popularBarangays = await Job.aggregate([
+      { $group: { _id: "$barangay", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      { $project: { barangay: "$_id", count: 1, _id: 0 } }
+    ]);
+
+    // Query recent activity from Activity model
+    const recentActivityDocs = await require('../models/Activity').find({})
+      .sort({ createdAt: -1 })
+      .limit(4)
+      .lean();
+    const recentActivity = recentActivityDocs.map(a => ({
+      _id: a._id,
+      type: a.type.includes('job') ? 'job' : 'user',
+      description: a.description,
+      createdAt: a.createdAt
+    }));
+
     res.status(200).json({
       totalUsers,
       usersTrend: '+12% this month',
@@ -38,19 +57,8 @@ exports.getDashboardStats = async (req, res) => {
         totalValue: 500000,
         averagePrice: 2500
       },
-      popularBarangays: [
-        { barangay: 'Barangay 1', count: 42 },
-        { barangay: 'Barangay 2', count: 37 },
-        { barangay: 'Barangay 3', count: 29 },
-        { barangay: 'Barangay 4', count: 21 },
-        { barangay: 'Barangay 5', count: 18 }
-      ],
-      recentActivity: [
-        { _id: '1', type: 'user', description: 'New user registered', createdAt: new Date() },
-        { _id: '2', type: 'job', description: 'Job posted: Plumbing', createdAt: new Date() },
-        { _id: '3', type: 'user', description: 'User verified', createdAt: new Date() },
-        { _id: '4', type: 'job', description: 'Job completed: Carpentry', createdAt: new Date() }
-      ]
+      popularBarangays,
+      recentActivity
     });
   } catch (err) {
     res.status(500).json({
