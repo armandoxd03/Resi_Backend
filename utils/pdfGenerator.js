@@ -39,11 +39,89 @@ function generateAnalyticsReport(analytics, filters = {}) {
         const startX = 70, startY = doc.y, colW = 110, rowH = 22;
         kpis.forEach((kpi, i) => {
           doc.rect(startX + i * colW, startY, colW, rowH).strokeColor('#e0e7ef').stroke();
-          doc.font('Helvetica-Bold').fontSize(11).text(kpi.label, startX + i * colW + 8, startY + 4, { width: colW - 16, align: 'center' });
+          doc.font('Helvetica-Bold').fontSize(11).fillColor('#222').text(kpi.label, startX + i * colW + 8, startY + 4, { width: colW - 16, align: 'center' });
           doc.font('Helvetica').fontSize(13).fillColor('#2b6cb0').text(kpi.value ?? 0, startX + i * colW + 8, startY + 14, { width: colW - 16, align: 'center' });
         });
         doc.y = startY + rowH + 10;
       }
+
+      // Add a horizontal divider before each section
+      function sectionDivider() {
+        doc.moveDown(0.5);
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#2b6cb0').stroke();
+        doc.moveDown(0.8);
+      }
+
+      // --- User Distribution ---
+      sectionDivider();
+      if (analytics && analytics.userDistribution) {
+        doc.fontSize(13).font('Helvetica-Bold').fillColor('#2b6cb0').text('USER DISTRIBUTION', { align: 'left' });
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(11).fillColor('#222');
+        const dist = analytics.userDistribution;
+        doc.text(`Employees:`, 70, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${dist.employee ?? 0} (${dist.employeePercentage?.toFixed(1) ?? 0}%)`);
+        doc.font('Helvetica').text(`Employers:`, 270, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${dist.employer ?? 0} (${dist.employerPercentage?.toFixed(1) ?? 0}%)`);
+        doc.moveDown(1);
+      }
+
+      // --- Job Statistics ---
+      sectionDivider();
+      if (analytics && analytics.jobStats) {
+        doc.fontSize(13).font('Helvetica-Bold').fillColor('#2b6cb0').text('JOB STATISTICS', { align: 'left' });
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(11).fillColor('#222');
+        const js = analytics.jobStats;
+        doc.text(`Active Jobs:`, 70, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${js.active ?? 0}`);
+        doc.font('Helvetica').text(`Completed Jobs:`, 270, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${js.completed ?? 0}`);
+        doc.moveDown(0.2);
+        doc.font('Helvetica').text(`Total Value:`, 70, doc.y, { continued: true }).font('Helvetica-Bold').text(` ₱${js.totalValue?.toLocaleString() ?? 0}`);
+        doc.font('Helvetica').text(`Average Price:`, 270, doc.y, { continued: true }).font('Helvetica-Bold').text(` ₱${js.averagePrice?.toLocaleString() ?? 0}`);
+        doc.moveDown(1);
+      }
+
+      // --- Popular Barangays ---
+      sectionDivider();
+      if (analytics && analytics.popularBarangays && analytics.popularBarangays.length > 0) {
+        doc.fontSize(13).font('Helvetica-Bold').fillColor('#2b6cb0').text('POPULAR BARANGAYS', { align: 'left' });
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(11).fillColor('#222');
+        analytics.popularBarangays.slice(0, 5).forEach((item, i) => {
+          doc.text(`${i + 1}. ${item.barangay}:`, 70, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${item.count} jobs`);
+        });
+        doc.moveDown(1);
+      }
+
+      // --- Recent Activity ---
+      sectionDivider();
+      if (analytics && analytics.recentActivity && analytics.recentActivity.length > 0) {
+        doc.fontSize(13).font('Helvetica-Bold').fillColor('#2b6cb0').text('RECENT ACTIVITY', { align: 'left' });
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(11).fillColor('#222');
+        analytics.recentActivity.slice(0, 6).forEach((activity, i) => {
+          doc.text(`- ${activity.description} (${new Date(activity.createdAt).toLocaleDateString()})`, 70, doc.y);
+        });
+        doc.moveDown(1);
+      }
+
+      // --- System Performance ---
+      sectionDivider();
+      if (analytics && analytics.performance) {
+        doc.fontSize(13).font('Helvetica-Bold').fillColor('#2b6cb0').text('SYSTEM PERFORMANCE', { align: 'left' });
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(11).fillColor('#222');
+        const perf = analytics.performance;
+        doc.text(`Response Time:`, 70, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${perf.responseTime ?? 'N/A'}`);
+        doc.font('Helvetica').text(`Uptime:`, 270, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${perf.uptime ?? 'N/A'}`);
+        doc.moveDown(0.2);
+        doc.font('Helvetica').text(`Error Rate:`, 70, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${perf.errorRate ?? 'N/A'}`);
+        doc.font('Helvetica').text(`Active Sessions:`, 270, doc.y, { continued: true }).font('Helvetica-Bold').text(` ${perf.activeSessions ?? 'N/A'}`);
+        doc.moveDown(1);
+      }
+
+      // Add footer
+      addReportFooter(doc);
+
+      doc.end();
 
       // --- User Distribution ---
       if (analytics && analytics.userDistribution) {
