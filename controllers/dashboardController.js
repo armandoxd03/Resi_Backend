@@ -1,8 +1,26 @@
 // Placeholder for employee dashboard stats
 exports.employeeDashboardStats = async (req, res) => {
     try {
-        // TODO: Implement actual stats logic
-        res.status(200).json({ message: 'Employee dashboard stats placeholder' });
+        const userId = req.params.id;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Example stats: applications, job offers, profile views, average rating
+        const applicationsCount = await Job.countDocuments({ applicants: userId });
+        const offersCount = await Job.countDocuments({ offeredTo: userId });
+        const viewsCount = user.profileViews || 0;
+        // Calculate average rating
+        const ratings = await Rating.find({ ratee: userId });
+        const averageRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) : 0;
+
+        res.status(200).json({
+            applications: applicationsCount,
+            jobOffers: offersCount,
+            profileViews: viewsCount,
+            averageRating
+        });
     } catch (err) {
         res.status(500).json({ message: 'Error fetching employee dashboard stats', error: err.message });
     }
