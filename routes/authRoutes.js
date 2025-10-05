@@ -4,11 +4,10 @@ const authController = require('../controllers/authController');
 const upload = require('../middleware/upload');
 const { registerValidation } = require('../middleware/validate');
 const auth = require('../middleware/auth');
-const { authLimiter } = require('../middleware/rateLimit');
+const { loginLimiter } = require('../middleware/rateLimit');
 
-// Registration
+// Registration (no rate limit)
 router.post('/register',
-  authLimiter,
   upload.fields([
     { name: 'idFrontImage', maxCount: 1 },
     { name: 'idBackImage', maxCount: 1 },
@@ -19,17 +18,17 @@ router.post('/register',
 );
 
 // Login with rate limiting
-router.post('/login', authLimiter, authController.login);
+router.post('/login', loginLimiter, authController.login);
 
-// Token verification
+// Token verification (no rate limit)
 router.get('/verify', auth.verify, authController.verifyToken);
 
-// Password reset with rate limiting
-router.post('/reset/request', authLimiter, authController.resetRequest);
+// Password reset (no rate limit)
+router.post('/reset/request', authController.resetRequest);
 router.post('/reset', authController.resetPassword);
 
-// Email verification with rate limiting
-router.post('/verify/resend', authLimiter, authController.resendVerification);
+// Email verification (no rate limit)
+router.post('/verify/resend', authController.resendVerification);
 
 // Delete unverified
 router.post('/delete-unverified', authController.deleteUnverified);
