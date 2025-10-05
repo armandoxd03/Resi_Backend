@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 exports.employeeDashboardStats = async (req, res) => {
     try {
             const userId = req.params.id;
-            const objectId = mongoose.Types.ObjectId(userId);
+            const objectId = new mongoose.Types.ObjectId(userId);
             const user = await User.findById(objectId);
             if (!user) {
                 return res.status(404).json({ message: 'User not found' });
