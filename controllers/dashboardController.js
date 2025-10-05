@@ -1,7 +1,11 @@
-// Placeholder for employee dashboard stats
+const User = require('../models/User');
+const Job = require('../models/Job');
+const Rating = require('../models/Rating');
+const Report = require('../models/Report');
+const mongoose = require('mongoose');
+
 exports.employeeDashboardStats = async (req, res) => {
     try {
-            const mongoose = require('mongoose');
             const userId = req.params.id;
             const objectId = mongoose.Types.ObjectId(userId);
             const user = await User.findById(objectId);
@@ -27,10 +31,6 @@ exports.employeeDashboardStats = async (req, res) => {
         res.status(500).json({ message: 'Error fetching employee dashboard stats', error: err.message });
     }
 };
-const User = require('../models/User');
-const Job = require('../models/Job');
-const Rating = require('../models/Rating');
-const Report = require('../models/Report');
 const { generateUserReport, generateJobReport, generateRatingReport } = require('../utils/pdfGenerator');
 const path = require('path');
 const fs = require('fs');

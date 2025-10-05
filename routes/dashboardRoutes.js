@@ -8,9 +8,6 @@ router.get('/barangay', auth.verify, dashboardController.barangayStats);
 
 // Employee dashboard stats
 router.get('/employee/:id/stats', auth.verify, dashboardController.employeeDashboardStats);
-
-// Employee dashboard stats
-router.get('/employee/:id/stats', auth.verify, dashboardController.employeeDashboardStats);
 // User search/PDF
 router.get('/search-users', auth.verify, dashboardController.searchUsers);
 router.get('/download-users-pdf', auth.verify, dashboardController.downloadUsersPdf);
