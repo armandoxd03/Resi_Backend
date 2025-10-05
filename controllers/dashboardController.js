@@ -6,29 +6,59 @@ const mongoose = require('mongoose');
 
 exports.employeeDashboardStats = async (req, res) => {
     try {
-            const userId = req.params.id;
-            const objectId = new mongoose.Types.ObjectId(userId);
-            const user = await User.findById(objectId);
-            if (!user) {
-                return res.status(404).json({ message: 'User not found' });
-            }
+        const userId = req.params.id;
+        const objectId = new mongoose.Types.ObjectId(userId);
+        const user = await User.findById(objectId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-            // Example stats: applications, job offers, profile views, average rating
-            const applicationsCount = await Job.countDocuments({ applicants: objectId });
-            const offersCount = await Job.countDocuments({ offeredTo: objectId });
-            const viewsCount = user.profileViews || 0;
-            // Calculate average rating
-            const ratings = await Rating.find({ ratee: objectId });
-            const averageRating = ratings.length > 0 ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) : 0;
+        // Get all job-related stats
+        const [
+            applications,
+            offers,
+            completedJobs
+        ] = await Promise.all([
+            Job.countDocuments({ applicants: objectId }),
+            Job.countDocuments({ offeredTo: objectId }),
+            Job.find({ 
+                worker: objectId,
+                status: 'completed'
+            })
+        ]);
 
-            res.status(200).json({
-                applications: applicationsCount,
-                jobOffers: offersCount,
-                profileViews: viewsCount,
-                averageRating
-            });
+        // Calculate total earnings from completed jobs
+        const totalEarnings = completedJobs.reduce((sum, job) => sum + (job.price || 0), 0);
+
+        // Calculate average rating
+        const ratings = await Rating.find({ ratee: objectId });
+        const averageRating = ratings.length > 0 
+            ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) 
+            : 0;
+
+        // Get upcoming payment info if any active jobs
+        const activeJob = await Job.findOne({
+            worker: objectId,
+            status: 'in_progress',
+            expectedCompletionDate: { $exists: true }
+        }).sort({ expectedCompletionDate: 1 });
+
+        res.status(200).json({
+            applications: applications,
+            jobOffers: offers,
+            profileViews: user.profileViews || 0,
+            averageRating: averageRating,
+            completedJobs: completedJobs.length,
+            totalEarnings: totalEarnings,
+            nextPaymentDate: activeJob?.expectedCompletionDate || null
+        });
     } catch (err) {
-        res.status(500).json({ message: 'Error fetching employee dashboard stats', error: err.message });
+        console.error('Error in employeeDashboardStats:', err);
+        res.status(500).json({ 
+            message: 'Error fetching employee dashboard stats',
+            error: err.message,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
     }
 };
 const { generateUserReport, generateJobReport, generateRatingReport } = require('../utils/pdfGenerator');

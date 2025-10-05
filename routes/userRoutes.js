@@ -14,8 +14,8 @@ router.put('/me',
     userController.editProfile
 );
 
-// Workers (public route)
-router.get('/workers', userController.getWorkers);
+// Get workers (requires authentication)
+router.get('/workers', auth.verify, userController.getWorkers);
 
 // Goals (Legacy)
 router.post('/goals', auth.verify, userController.setGoal);
