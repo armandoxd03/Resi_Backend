@@ -28,10 +28,10 @@ const MONGODB_URI =
 // ✅ MongoDB Connection
 mongoose
   .connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 30000,  // Increased timeout for Render
     socketTimeoutMS: 45000,
+    maxPoolSize: 10,
+    connectTimeoutMS: 30000
   })
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => {
@@ -45,7 +45,7 @@ const app = express();
 // ✅ CORS (allow React frontend in dev)
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',');
         app.use(cors({
-          origin: ['http://localhost:5173', 'https://resi-backend-1.onrender.com'],
+          origin: allowedOrigins,
           methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
           allowedHeaders: ['Content-Type', 'Authorization'],
           credentials: true
