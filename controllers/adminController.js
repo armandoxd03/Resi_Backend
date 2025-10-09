@@ -221,16 +221,30 @@ exports.getAllJobs = async (req, res) => {
 
 exports.deleteJob = async (req, res) => {
     try {
-        const job = await Job.findByIdAndDelete(req.params.id);
+        // First check if job exists
+        const job = await Job.findById(req.params.id);
         if (!job) {
-            return res.status(404).json({ message: "Job not found", alert: "No job found with that ID" });
+            // Idempotent: Return success if job is already deleted
+            return res.status(200).json({
+                message: "Job already deleted",
+                alert: "Job has been deleted"
+            });
         }
 
-        await createNotification({
-            recipient: job.postedBy,
-            type: 'job_update',
-            message: `Your job "${job.title}" was removed by admin`
-        });
+        // Send notification to job poster
+        try {
+            await createNotification({
+                recipient: job.postedBy,
+                type: 'job_update',
+                message: `Your job "${job.title}" was removed by admin`
+            });
+        } catch (notificationErr) {
+            console.error('Error sending job deletion notification:', notificationErr);
+            // Continue with deletion even if notification fails
+        }
+
+        // Delete the job
+        await Job.findByIdAndDelete(req.params.id);
 
         res.status(200).json({
             message: "Job deleted successfully",
@@ -238,7 +252,12 @@ exports.deleteJob = async (req, res) => {
             alert: "Job permanently deleted"
         });
     } catch (err) {
-        res.status(500).json({ message: "Error deleting job", error: err.message, alert: "Failed to delete job" });
+        console.error('Admin job deletion error:', err);
+        res.status(500).json({ 
+            message: "Error deleting job", 
+            error: err.message, 
+            alert: "Failed to delete job" 
+        });
     }
 };
 
