@@ -679,35 +679,36 @@ exports.closeJob = async (req, res) => {
 
 // DELETE /api/jobs/:id → Delete a job
 exports.deleteJob = async (req, res) => {
-  try {
-    const job = await Job.findById(req.params.id);
-    if (!job) {
-      return res.status(404).json({ 
-        message: "Job not found",
-        alert: "This job is no longer available"
-      });
+    try {
+        const job = await Job.findById(req.params.id);
+        if (!job) {
+            // Instead of error, return success (idempotent delete)
+            return res.status(200).json({
+                message: "Job already deleted",
+                alert: "Job has been deleted"
+            });
+        }
+
+        if (job.postedBy.toString() !== req.user.id) {
+            return res.status(403).json({ 
+                message: "Not authorized",
+                alert: "You can only delete your own jobs"
+            });
+        }
+
+        await Job.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({ 
+            message: "Job deleted successfully",
+            alert: "Job has been deleted"
+        });
+    } catch (err) {
+        res.status(500).json({ 
+            message: "Error deleting job", 
+            error: err.message,
+            alert: "Failed to delete job"
+        });
     }
-
-    if (job.postedBy.toString() !== req.user.id) {
-      return res.status(403).json({ 
-        message: "Not authorized",
-        alert: "You can only delete your own jobs"
-      });
-    }
-
-    await Job.findByIdAndDelete(req.params.id);
-
-    res.status(200).json({ 
-      message: "Job deleted successfully",
-      alert: "Job has been deleted"
-    });
-  } catch (err) {
-    res.status(500).json({ 
-      message: "Error deleting job", 
-      error: err.message,
-      alert: "Failed to delete job"
-    });
-  }
 };
 
 // POST /api/jobs/:id/reject → Reject an application
