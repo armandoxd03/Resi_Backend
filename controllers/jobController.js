@@ -401,8 +401,12 @@ exports.cancelApplication = async (req, res) => {
 // POST /api/jobs/:id/assign → Assign worker to a job
 exports.assignWorker = async (req, res) => {
     try {
+        console.log('assignWorker called for job:', req.params.id);
+        console.log('Request body:', req.body);
+        
         const job = await Job.findById(req.params.id).populate('postedBy');
         if (!job) {
+            console.log('Job not found:', req.params.id);
             return res.status(404).json({ 
                 message: "Job not found",
                 alert: "This job is no longer available"
@@ -411,6 +415,10 @@ exports.assignWorker = async (req, res) => {
 
         // ✅ Fix postedBy comparison
         if (job.postedBy._id.toString() !== req.user.id) {
+            console.log('Authorization failed:', {
+                jobPostedBy: job.postedBy._id.toString(),
+                requestUserId: req.user.id
+            });
             return res.status(403).json({ 
                 message: "Not authorized",
                 alert: "You can only assign workers to your own jobs"
@@ -419,7 +427,9 @@ exports.assignWorker = async (req, res) => {
 
         // ✅ Ensure userId was provided
         const { userId } = req.body;
+        console.log('Requested userId to assign:', userId);
         if (!userId) {
+            console.log('Missing userId in request body');
             return res.status(400).json({
                 message: "Missing userId",
                 alert: "You must provide the applicant's userId"
@@ -680,8 +690,12 @@ exports.closeJob = async (req, res) => {
 // DELETE /api/jobs/:id → Delete a job
 exports.deleteJob = async (req, res) => {
     try {
+        console.log('deleteJob called for job ID:', req.params.id);
+        console.log('User ID attempting deletion:', req.user.id);
+        
         const job = await Job.findById(req.params.id);
         if (!job) {
+            console.log('Job not found for deletion - already deleted');
             // Instead of error, return success (idempotent delete)
             return res.status(200).json({
                 message: "Job already deleted",
@@ -689,7 +703,17 @@ exports.deleteJob = async (req, res) => {
             });
         }
 
-        if (job.postedBy.toString() !== req.user.id) {
+        console.log('Job found:', {
+            jobId: job._id,
+            postedBy: job.postedBy ? job.postedBy.toString() : 'undefined',
+            title: job.title
+        });
+
+        if (job.postedBy && job.postedBy.toString() !== req.user.id) {
+            console.log('Authorization failed for job deletion:', {
+                jobPostedBy: job.postedBy.toString(),
+                requestUserId: req.user.id
+            });
             return res.status(403).json({ 
                 message: "Not authorized",
                 alert: "You can only delete your own jobs"
@@ -697,12 +721,14 @@ exports.deleteJob = async (req, res) => {
         }
 
         await Job.findByIdAndDelete(req.params.id);
+        console.log('Job successfully deleted:', req.params.id);
 
         res.status(200).json({ 
             message: "Job deleted successfully",
             alert: "Job has been deleted"
         });
     } catch (err) {
+        console.error('Error in deleteJob:', err);
         res.status(500).json({ 
             message: "Error deleting job", 
             error: err.message,
@@ -714,8 +740,12 @@ exports.deleteJob = async (req, res) => {
 // POST /api/jobs/:id/reject → Reject an application
 exports.rejectApplication = async (req, res) => {
   try {
+    console.log('rejectApplication called for job:', req.params.id);
+    console.log('Request body:', req.body);
+    
     const job = await Job.findById(req.params.id).populate('postedBy');
     if (!job) {
+      console.log('Job not found:', req.params.id);
       return res.status(404).json({ 
         message: "Job not found",
         alert: "This job is no longer available"
@@ -723,6 +753,10 @@ exports.rejectApplication = async (req, res) => {
     }
 
     if (job.postedBy._id.toString() !== req.user.id) {
+      console.log('Authorization failed:', {
+        jobPostedBy: job.postedBy._id.toString(),
+        requestUserId: req.user.id
+      });
       return res.status(403).json({ 
         message: "Not authorized",
         alert: "You can only manage applications for your own jobs"
@@ -730,7 +764,9 @@ exports.rejectApplication = async (req, res) => {
     }
 
     const { userId } = req.body;
+    console.log('Requested userId to reject:', userId);
     if (!userId) {
+      console.log('Missing userId in request body');
       return res.status(400).json({
         message: "Missing userId",
         alert: "You must provide the applicant's userId"
