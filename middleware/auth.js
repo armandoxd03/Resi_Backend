@@ -69,8 +69,9 @@ exports.verify = async (req, res, next) => {
         }
 
         // Attach complete user info to request
+        // Convert ObjectId to string to ensure consistent comparisons
         req.user = {
-            id: user._id,
+            id: user._id.toString(), // Convert to string explicitly
             email: user.email,
             userType: user.userType,
             firstName: user.firstName,
