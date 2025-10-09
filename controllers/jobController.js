@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const { findMatchingJobs } = require('../utils/matchingEngine');
@@ -413,11 +414,14 @@ exports.assignWorker = async (req, res) => {
             });
         }
 
-        // ✅ Fix postedBy comparison
-        if (job.postedBy._id.toString() !== req.user.id) {
+        // ✅ Fix postedBy comparison - ensure both are strings
+        const jobPostedById = job.postedBy._id.toString();
+        const currentUserId = req.user.id.toString();
+        
+        if (jobPostedById !== currentUserId) {
             console.log('Authorization failed:', {
-                jobPostedBy: job.postedBy._id.toString(),
-                requestUserId: req.user.id
+                jobPostedBy: jobPostedById,
+                requestUserId: currentUserId
             });
             return res.status(403).json({ 
                 message: "Not authorized",
@@ -706,13 +710,34 @@ exports.deleteJob = async (req, res) => {
         console.log('Job found:', {
             jobId: job._id,
             postedBy: job.postedBy ? job.postedBy.toString() : 'undefined',
+            postedByType: job.postedBy ? typeof job.postedBy : 'undefined',
+            postedByIsObjectId: job.postedBy ? job.postedBy instanceof mongoose.Types.ObjectId : false,
             title: job.title
         });
 
-        if (job.postedBy && job.postedBy.toString() !== req.user.id) {
+        console.log('User attempting deletion:', {
+            userId: req.user.id,
+            userIdType: typeof req.user.id,
+            userType: req.user.userType
+        });
+
+        // Get the string representations for safe comparison
+        const jobOwnerId = job.postedBy ? job.postedBy.toString() : '';
+        const currentUserId = req.user.id ? req.user.id.toString() : '';
+        
+        console.log('ID comparison:', {
+            jobOwnerId,
+            currentUserId,
+            isMatch: jobOwnerId === currentUserId,
+            isAdmin: req.user.userType === 'admin'
+        });
+
+        // Check if the job is owned by the user trying to delete it or if user is admin
+        if (job.postedBy && jobOwnerId !== currentUserId && req.user.userType !== 'admin') {
             console.log('Authorization failed for job deletion:', {
-                jobPostedBy: job.postedBy.toString(),
-                requestUserId: req.user.id
+                jobPostedBy: jobOwnerId,
+                requestUserId: currentUserId,
+                userType: req.user.userType
             });
             return res.status(403).json({ 
                 message: "Not authorized",
@@ -729,10 +754,19 @@ exports.deleteJob = async (req, res) => {
         });
     } catch (err) {
         console.error('Error in deleteJob:', err);
+        
+        // Provide a more helpful error message
+        let errorMessage = "Failed to delete job";
+        if (err.name === 'CastError' && err.kind === 'ObjectId') {
+            errorMessage = "Invalid job ID format";
+        } else if (err.message.includes('not authorized')) {
+            errorMessage = "Not authorized to delete this job";
+        }
+        
         res.status(500).json({ 
             message: "Error deleting job", 
             error: err.message,
-            alert: "Failed to delete job"
+            alert: errorMessage
         });
     }
 };
@@ -752,10 +786,15 @@ exports.rejectApplication = async (req, res) => {
       });
     }
 
-    if (job.postedBy._id.toString() !== req.user.id) {
+    // Ensure consistent string comparison
+    const jobPostedById = job.postedBy._id.toString();
+    const currentUserId = req.user.id.toString();
+    
+    if (jobPostedById !== currentUserId) {
       console.log('Authorization failed:', {
-        jobPostedBy: job.postedBy._id.toString(),
-        requestUserId: req.user.id
+        jobPostedBy: jobPostedById,
+        requestUserId: currentUserId,
+        match: jobPostedById === currentUserId
       });
       return res.status(403).json({ 
         message: "Not authorized",
