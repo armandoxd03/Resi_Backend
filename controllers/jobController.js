@@ -318,8 +318,9 @@ exports.cancelApplication = async (req, res) => {
             });
         }
 
-        const applicationIndex = job.applicants.findIndex(a => a.user.toString() === req.user.id);
+        const applicationIndex = job.applicants.findIndex(a => a.user && a.user.toString() === req.user.id);
         if (applicationIndex === -1) {
+            console.log(`No application found for user ${req.user.id} on job ${req.params.id}`);
             return res.status(400).json({ 
                 message: "No application found",
                 alert: "You haven't applied to this job"
