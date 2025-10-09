@@ -555,14 +555,48 @@ exports.getPopularJobs = async (req, res) => {
 
 exports.getMyApplications = async (req, res) => {
   try {
-    const jobs = await Job.find({
+    // First fetch all jobs where the user has applied
+    const allApplicationJobs = await Job.find({
       'applicants.user': req.user.id
     })
     .populate('postedBy', 'firstName lastName')
     .sort({ datePosted: -1 });
     
-    res.status(200).json(jobs);
+    // Filter the jobs into active applications and history
+    const activeApplications = [];
+    const applicationHistory = [];
+    
+    allApplicationJobs.forEach(job => {
+      const userApplication = job.applicants.find(a => 
+        a.user && a.user.toString() === req.user.id
+      );
+      
+      // Determine if this is an active application or part of history
+      const isActive = job.isOpen && userApplication && userApplication.status === 'pending';
+      
+      // Add the job to the appropriate list
+      if (isActive) {
+        activeApplications.push(job);
+      } else {
+        // Include the application status in the history items
+        const statusInfo = {
+          status: userApplication ? userApplication.status : 'unknown',
+          isOpen: job.isOpen,
+          assignedToMe: job.assignedTo && job.assignedTo.toString() === req.user.id
+        };
+        applicationHistory.push({ ...job.toObject(), applicationInfo: statusInfo });
+      }
+    });
+    
+    res.status(200).json({
+      activeApplications,
+      applicationHistory,
+      // For backward compatibility, return the active applications as the main array
+      // This will be used by existing code that expects a simple array
+      ...activeApplications
+    });
   } catch (err) {
+    console.error('Error in getMyApplications:', err);
     res.status(500).json({
       message: "Error fetching user applications",
       error: err.message
