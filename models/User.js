@@ -30,9 +30,8 @@ const userSchema = new mongoose.Schema({
 
     // Verification and Profile Information
     isVerified: { type: Boolean, default: false },  // Admin verification
-    isEmailVerified: { type: Boolean, default: false },  // Email verification
-    emailVerificationToken: { type: String },
-    emailVerificationExpires: { type: Date },
+    verificationToken: { type: String },
+    verificationExpires: { type: Date },
     gender: { 
         type: String, 
         enum: ['male', 'female', 'others', 'other', ''], 

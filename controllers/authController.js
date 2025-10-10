@@ -298,7 +298,8 @@ exports.resetRequest = async (req, res) => {
         const user = await User.findOne({ email });
         if (user) {
             const token = createAccessToken(user);
-            const link = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+            // Frontend URL is already handled in the sendResetEmail function
+            const link = `/reset-password/${token}`;
 
             await sendResetEmail(user.email, link);
 
