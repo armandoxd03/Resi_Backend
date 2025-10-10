@@ -1,6 +1,92 @@
 const Goal = require('../models/Goal');
 const { createNotification } = require('../utils/notificationHelper');
 
+/**
+ * Update goals with job payment and handle cascading to next goal if completed
+ * @param {string} userId - User ID
+ * @param {number} amount - Job payment amount
+ * @param {string} jobId - Job ID that was completed
+ * @returns {Promise<Object>} - Result of the goal update operation
+ */
+exports.updateGoalsWithJobPayment = async (userId, amount, jobId) => {
+    try {
+        // Get all incomplete goals for the user, sorted by creation date (oldest first)
+        const goals = await Goal.find({ 
+            user: userId, 
+            completed: false 
+        }).sort({ createdAt: 1 });
+        
+        if (goals.length === 0) {
+            return { 
+                success: true, 
+                message: 'No active goals found', 
+                goalsUpdated: 0,
+                remainingAmount: amount
+            };
+        }
+        
+        let remainingAmount = amount;
+        let updatedGoals = [];
+        let completedGoals = [];
+        
+        // Process each goal until payment is fully allocated
+        for (const goal of goals) {
+            if (remainingAmount <= 0) break;
+            
+            const amountNeededToComplete = goal.targetAmount - goal.progress;
+            const amountToAllocate = Math.min(remainingAmount, amountNeededToComplete);
+            
+            // Add to goal progress
+            goal.progress += amountToAllocate;
+            
+            // Add to history
+            goal.history.push({
+                amount: amountToAllocate,
+                source: 'job',
+                jobId,
+                date: new Date()
+            });
+            
+            // Check if goal is completed
+            if (goal.progress >= goal.targetAmount) {
+                goal.completed = true;
+                goal.completedAt = new Date();
+                completedGoals.push(goal);
+                
+                // Create notification for goal completion
+                await createNotification({
+                    recipient: userId,
+                    type: 'goal_completed',
+                    message: `Congratulations! You completed your goal: ${goal.description} (₱${goal.targetAmount})`
+                });
+            }
+            
+            await goal.save();
+            updatedGoals.push(goal);
+            
+            remainingAmount -= amountToAllocate;
+        }
+        
+        return {
+            success: true,
+            message: `Goals updated successfully`,
+            updatedGoals,
+            completedGoals,
+            goalsUpdated: updatedGoals.length,
+            goalsCompleted: completedGoals.length,
+            remainingAmount
+        };
+        
+    } catch (error) {
+        console.error('Error updating goals with job payment:', error);
+        return {
+            success: false,
+            message: 'Error updating goals with job payment',
+            error: error.message
+        };
+    }
+};
+
 exports.createGoal = async (req, res) => {
     try {
         const { targetAmount, description, targetDate } = req.body;
