@@ -5,7 +5,13 @@ const cors = require('cors');
  * @returns {Function} Configured CORS middleware
  */
 function configureCors() {
-  const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
+  const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173,https://resi-frontend.vercel.app").split(',').map(origin => origin.trim());
+  
+  // Always include localhost:5173 for development
+  if (!allowedOrigins.includes('http://localhost:5173')) {
+    allowedOrigins.push('http://localhost:5173');
+  }
+  
   console.log("🔒 CORS allowed origins:", allowedOrigins);
   
   // Set up CORS options
@@ -22,13 +28,11 @@ function configureCors() {
         callback(null, true);
       } else {
         console.log(`⚠️ CORS blocked origin: ${origin}`);
-        // For debugging only - allow all origins but log the blocked ones
-        if (process.env.NODE_ENV === 'development' || process.env.CORS_DEBUG === 'true') {
-          console.log(`🔓 CORS: Development mode or debug enabled - allowing: ${origin}`);
-          callback(null, true);
-        } else {
-          callback(new Error(`Origin ${origin} not allowed by CORS`));
-        }
+        // For development and testing, allow all origins but log warnings
+        console.log(`🔓 CORS: Allowing: ${origin} (with warning)`);
+        callback(null, true);
+        // Uncomment below for stricter production settings
+        // callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
