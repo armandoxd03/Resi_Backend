@@ -47,12 +47,27 @@ mongoose
 // App Initialization
 const app = express();
 
-// ✅ Configure CORS with enhanced options
-const configureCors = require('./middleware/corsHandler');
-app.use(configureCors());
+// ✅ CORS (allow React frontend in dev)
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
+console.log("🔒 CORS allowed origins:", allowedOrigins);
 
-// Enable pre-flight requests for all routes
-app.options('*', configureCors());
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.log("❌ CORS blocked origin:", origin);
+      callback(null, true); // Temporarily allow all origins to debug
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight request for 1 day
+}));
 
 // Add explicit CORS headers for maximum compatibility
 app.use((req, res, next) => {
@@ -139,10 +154,32 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
+  if (server && server.close) {
+    server.close(() => {
+      mongoose.connection.close();
+      console.log('Process terminated');
+    });
+  } else {
     mongoose.connection.close();
-    console.log('Process terminated');
-  });
+    console.log('Process terminated (no active server)');
+    process.exit(0);
+  }
+});
+
+// Handle CTRL+C
+process.on('SIGINT', () => {
+  console.log('SIGINT received (Ctrl+C), shutting down gracefully');
+  if (server && server.close) {
+    server.close(() => {
+      mongoose.connection.close();
+      console.log('Process terminated');
+      process.exit(0);
+    });
+  } else {
+    mongoose.connection.close();
+    console.log('Process terminated (no active server)');
+    process.exit(0);
+  }
 });
 
 module.exports = { app, mongoose };
