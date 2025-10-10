@@ -64,12 +64,10 @@ const sendVerificationEmail = async (email, token) => {
     // Try Gmail as fallback or primary if SendGrid isn't configured
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       console.log(`📨 Attempting to send via Gmail SMTP`);
-      console.log(`📧 Gmail settings: Host=${process.env.EMAIL_HOST || "smtp.gmail.com"}, Port=${process.env.EMAIL_PORT || "587"}, Secure=${process.env.EMAIL_SECURE || "false"}`);
-      
       const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
-        secure: process.env.EMAIL_SECURE === "true",
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
@@ -77,17 +75,10 @@ const sendVerificationEmail = async (email, token) => {
         // Increase timeout settings
         connectionTimeout: 30000, // 30 seconds
         greetingTimeout: 30000,
-        socketTimeout: 60000, // 60 seconds
-        // Debug options
-        logger: true
+        socketTimeout: 60000 // 60 seconds
       });
       
       try {
-        // Verify connection configuration
-        await transporter.verify();
-        console.log('✅ SMTP connection verified');
-        
-        // Send email
         await transporter.sendMail(emailContent);
         console.log(`✅ Verification email sent to ${email} via Gmail SMTP`);
         return true;
@@ -163,12 +154,10 @@ const sendResetEmail = async (to, resetLink) => {
     // Try Gmail as fallback or primary if SendGrid isn't configured
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       console.log(`📨 Attempting to send via Gmail SMTP`);
-      console.log(`📧 Gmail settings: Host=${process.env.EMAIL_HOST || "smtp.gmail.com"}, Port=${process.env.EMAIL_PORT || "587"}, Secure=${process.env.EMAIL_SECURE || "false"}`);
-      
       const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
-        secure: process.env.EMAIL_SECURE === "true",
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
@@ -176,17 +165,10 @@ const sendResetEmail = async (to, resetLink) => {
         // Increase timeout settings
         connectionTimeout: 30000, // 30 seconds
         greetingTimeout: 30000,
-        socketTimeout: 60000, // 60 seconds
-        // Debug options
-        logger: true
+        socketTimeout: 60000 // 60 seconds
       });
       
       try {
-        // Verify connection configuration
-        await transporter.verify();
-        console.log('✅ SMTP connection verified');
-        
-        // Send email
         await transporter.sendMail(emailContent);
         console.log(`✅ Password reset email sent to ${to} via Gmail SMTP`);
         return true;
@@ -216,32 +198,6 @@ const verifyConnection = async () => {
   console.log(`- Gmail configured: ${hasGmail}`);
   console.log(`- FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
   console.log(`- EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set'}`);
-  console.log(`- EMAIL_HOST: ${process.env.EMAIL_HOST || 'not set (using default smtp.gmail.com)'}`);
-  console.log(`- EMAIL_PORT: ${process.env.EMAIL_PORT || 'not set (using default 587)'}`);
-  
-  // Test Gmail connection if configured
-  if (hasGmail) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
-        secure: process.env.EMAIL_SECURE === "true",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        connectionTimeout: 10000 // 10 seconds for testing
-      });
-      
-      await transporter.verify();
-      console.log('✅ Gmail SMTP connection verified successfully');
-      return true;
-    } catch (error) {
-      console.error('❌ Gmail SMTP connection test failed:', error.message);
-      // Still return true if SendGrid is configured
-      return hasSendGrid;
-    }
-  }
   
   return hasSendGrid || hasGmail;
 };

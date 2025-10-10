@@ -74,16 +74,29 @@ exports.register = async (req, res) => {
           }
         });
 
-        await sendVerificationEmail(user.email, verificationToken);
+        // Try to send verification email but don't block registration if it fails
+        try {
+            await sendVerificationEmail(user.email, verificationToken);
+            console.log(`✅ Verification email successfully sent to ${user.email}`);
+        } catch (emailError) {
+            console.error(`⚠️ Failed to send verification email to ${user.email}:`, emailError.message);
+            // Continue registration process despite email failure
+        }
 
         // Notify admin
         const adminUser = await User.findOne({ userType: 'admin' });
         if (adminUser) {
-            await createNotification({
-                recipient: adminUser._id,
-                type: 'admin_message',
-                message: `New user ${user.email} requires verification`
-            });
+            try {
+                await createNotification({
+                    recipient: adminUser._id,
+                    type: 'admin_message',
+                    message: `New user ${user.email} requires verification`
+                });
+                console.log(`✅ Admin notification sent for new user ${user.email}`);
+            } catch (notificationError) {
+                console.error(`⚠️ Failed to send admin notification:`, notificationError.message);
+                // Continue despite notification failure
+            }
 
             // ✅ LOG ACTIVITY: Admin notification
             await createActivityLog({
