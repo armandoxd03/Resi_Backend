@@ -17,9 +17,18 @@ exports.updateGoalsWithJobPayment = async (userId, amount, jobId) => {
         }).sort({ createdAt: 1 });
         
         if (goals.length === 0) {
+            // If no active goals found, create a record of the payment for future reference
+            // This could be stored in a separate collection or as a user activity
+            await createNotification({
+                recipient: userId,
+                type: 'job_payment',
+                message: `You received a payment of ₱${amount} from a completed job, but you have no active goals.`,
+                relatedJob: jobId
+            });
+            
             return { 
                 success: true, 
-                message: 'No active goals found', 
+                message: 'No active goals found. Payment recorded but not allocated.', 
                 goalsUpdated: 0,
                 remainingAmount: amount
             };
@@ -29,10 +38,14 @@ exports.updateGoalsWithJobPayment = async (userId, amount, jobId) => {
         let updatedGoals = [];
         let completedGoals = [];
         
-        // Process each goal until payment is fully allocated
-        for (const goal of goals) {
+        // Process goals in sequence (oldest first) until payment is fully allocated
+        for (let i = 0; i < goals.length; i++) {
+            const goal = goals[i];
+            
+            // Stop if no more funds to allocate
             if (remainingAmount <= 0) break;
             
+            // Calculate how much more is needed to complete this goal
             const amountNeededToComplete = goal.targetAmount - goal.progress;
             const amountToAllocate = Math.min(remainingAmount, amountNeededToComplete);
             
@@ -47,6 +60,9 @@ exports.updateGoalsWithJobPayment = async (userId, amount, jobId) => {
                 date: new Date()
             });
             
+            // Track remaining amount
+            remainingAmount -= amountToAllocate;
+            
             // Check if goal is completed
             if (goal.progress >= goal.targetAmount) {
                 goal.completed = true;
@@ -59,12 +75,25 @@ exports.updateGoalsWithJobPayment = async (userId, amount, jobId) => {
                     type: 'goal_completed',
                     message: `Congratulations! You completed your goal: ${goal.description} (₱${goal.targetAmount})`
                 });
+                
+                console.log(`Goal completed: ${goal._id} - ${goal.description} - ₱${goal.targetAmount}`);
+                
+                // If there are excess funds, they'll cascade to the next goal in the next iteration
+                // This is handled automatically by the loop
             }
             
             await goal.save();
             updatedGoals.push(goal);
-            
-            remainingAmount -= amountToAllocate;
+        }
+        
+        // If there's still remaining amount but no more active goals
+        if (remainingAmount > 0) {
+            await createNotification({
+                recipient: userId,
+                type: 'excess_payment',
+                message: `You received an excess payment of ₱${remainingAmount} after updating your goals.`,
+                relatedJob: jobId
+            });
         }
         
         return {
@@ -89,7 +118,7 @@ exports.updateGoalsWithJobPayment = async (userId, amount, jobId) => {
 
 exports.createGoal = async (req, res) => {
     try {
-        const { targetAmount, description, targetDate } = req.body;
+        const { targetAmount, description, targetDate, progress = 0, completed } = req.body;
         
         if (!targetAmount || !description) {
             return res.status(400).json({
@@ -99,27 +128,42 @@ exports.createGoal = async (req, res) => {
             });
         }
 
+        // Determine if the goal should be marked as completed
+        const isCompleted = completed !== undefined ? 
+            completed : 
+            (progress >= targetAmount);
+        
         const goal = new Goal({
             user: req.user.id,
             targetAmount,
             description,
             targetDate,
-            progress: 0,
-            completed: false
+            progress: progress || 0,
+            completed: isCompleted,
+            completedAt: isCompleted ? new Date() : undefined
         });
 
         await goal.save();
 
-        await createNotification({
-            recipient: req.user.id,
-            type: 'goal_created',
-            message: `New goal created: ${description} (₱${targetAmount})`
-        });
+        // Create appropriate notification
+        if (isCompleted) {
+            await createNotification({
+                recipient: req.user.id,
+                type: 'goal_completed',
+                message: `New goal created and completed: ${description} (₱${targetAmount})`
+            });
+        } else {
+            await createNotification({
+                recipient: req.user.id,
+                type: 'goal_created',
+                message: `New goal created: ${description} (₱${targetAmount})`
+            });
+        }
 
         res.status(201).json({
             message: "Goal created successfully",
             goal,
-            alert: "New goal created!"
+            alert: isCompleted ? "New goal created and completed! 🎉" : "New goal created!"
         });
     } catch (err) {
         res.status(500).json({ 
@@ -175,9 +219,27 @@ exports.updateGoal = async (req, res) => {
     try {
         const { progress, completed, targetAmount, description, targetDate } = req.body;
         
+        // Auto-calculate completion status based on progress vs target
+        const isCompleted = completed !== undefined ? 
+            completed : 
+            (targetAmount && progress >= targetAmount);
+        
+        const updates = { 
+            progress, 
+            targetAmount, 
+            description, 
+            targetDate,
+            completed: isCompleted
+        };
+        
+        // If goal is being completed, add completedAt date
+        if (isCompleted && !completed) {
+            updates.completedAt = new Date();
+        }
+        
         const goal = await Goal.findOneAndUpdate(
             { _id: req.params.id, user: req.user.id },
-            { progress, completed, targetAmount, description, targetDate },
+            updates,
             { new: true }
         );
 
@@ -188,7 +250,8 @@ exports.updateGoal = async (req, res) => {
             });
         }
 
-        if (completed) {
+        // If goal is newly completed, create a notification
+        if (goal.completed && !completed) {
             await createNotification({
                 recipient: req.user.id,
                 type: 'goal_completed',
@@ -199,7 +262,7 @@ exports.updateGoal = async (req, res) => {
         res.status(200).json({
             message: "Goal updated successfully",
             goal,
-            alert: "Goal updated"
+            alert: goal.completed ? "Congratulations! Goal completed! 🎉" : "Goal updated"
         });
     } catch (err) {
         res.status(500).json({ 
