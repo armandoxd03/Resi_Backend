@@ -17,7 +17,19 @@ const transporter = nodemailer.createTransport({
  */
 const sendVerificationEmail = async (email, token) => {
     try {
-        const verificationLink = `${process.env.FRONTEND_URL}/verify-email/${token}`;
+        // Handle case where FRONTEND_URL contains multiple comma-separated URLs
+        let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        
+        // If there are multiple URLs, take the first one (production) or the second one (development)
+        if (frontendUrl.includes(',')) {
+            const urls = frontendUrl.split(',');
+            // Prefer the production URL if available, otherwise use localhost
+            frontendUrl = urls.find(url => url.includes('vercel.app') || url.includes('resilinked')) || urls[0];
+        }
+        
+        const verificationLink = `${frontendUrl.trim()}/verify-email/${token}`;
+        
+        console.log(`Generating verification link: ${verificationLink}`);
         
         const mailOptions = {
             from: `ResiLinked <${process.env.EMAIL_USER}>`,

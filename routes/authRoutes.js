@@ -27,7 +27,8 @@ router.get('/verify', auth.verify, authController.verifyToken);
 router.post('/reset/request', authController.resetRequest);
 router.post('/reset', authController.resetPassword);
 
-// Email verification (no rate limit)
+// Email verification endpoints (no rate limit)
+router.post('/verify', authController.verifyEmail); // New endpoint to verify email with token
 router.post('/verify/resend', authController.resendVerification);
 
 // Delete unverified

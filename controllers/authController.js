@@ -485,7 +485,7 @@ exports.resendVerification = async (req, res) => {
     }
 };
 
-// Verify Token
+// Verify Token (for authentication)
 exports.verifyToken = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
@@ -502,6 +502,82 @@ exports.verifyToken = async (req, res) => {
     res.status(200).json({ valid: true, user });
   } catch (error) {
     res.status(401).json({ valid: false, message: "Invalid or expired token" });
+  }
+};
+
+// Verify Email Address
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({
+        success: false, 
+        message: "Verification token is required"
+      });
+    }
+
+    // Find user with this verification token
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired verification token"
+      });
+    }
+
+    // Update user status
+    user.isVerified = true;
+    user.isEmailVerified = true;
+    user.verificationToken = undefined;
+    user.verificationExpires = undefined;
+    await user.save();
+
+    // Log the activity
+    await createActivityLog({
+      userId: user._id,
+      userName: `${user.firstName} ${user.lastName}`,
+      type: 'email_verification',
+      description: 'Email verified successfully',
+      metadata: {
+        email: user.email,
+        verifiedAt: new Date()
+      }
+    });
+
+    // Create notification
+    await createNotification({
+      recipient: user._id,
+      type: 'account_update',
+      message: 'Your email has been successfully verified'
+    });
+
+    // Generate login token
+    const accessToken = createAccessToken(user);
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully",
+      token: accessToken,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        userType: user.userType
+      }
+    });
+
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: "Server error during verification",
+      error: error.message
+    });
   }
 };
 
