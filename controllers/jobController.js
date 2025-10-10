@@ -499,9 +499,18 @@ exports.assignWorker = async (req, res) => {
 // GET /api/jobs/search → Search jobs with filters
 exports.search = async (req, res) => {
     try {
-        const { skill, barangay, minPrice, maxPrice, sortBy = 'datePosted', order = 'desc', page = 1, limit = 10 } = req.query;
+        const { search, skill, barangay, minPrice, maxPrice, sortBy = 'datePosted', order = 'desc', page = 1, limit = 10 } = req.query;
         
         let query = { isOpen: true };
+        
+        // Handle text search
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+                { skillsRequired: { $in: [new RegExp(search, 'i')] } }
+            ];
+        }
         
         if (skill) query.skillsRequired = { $in: skill.split(',') };
         if (barangay) query.barangay = barangay;
