@@ -38,12 +38,23 @@ const addIncomeToActiveGoal = async (userId, amount, jobId) => {
             activeGoal.isActive = false;
             activeGoal.completedAt = new Date();
             
-            // Activate next goal if available
-            const nextGoal = await Goal.findOne({
+            // Find and activate the next goal if available
+            // First, check for priority goals
+            let nextGoal = await Goal.findOne({
                 user: userId,
                 completed: false,
-                isActive: false
-            }).sort({ priority: 1 });
+                isActive: false,
+                isPriority: true
+            }).sort({ createdAt: 1 }); // Get the oldest priority goal first
+            
+            // If no priority goal is found, get the next goal by priority number
+            if (!nextGoal) {
+                nextGoal = await Goal.findOne({
+                    user: userId,
+                    completed: false,
+                    isActive: false
+                }).sort({ priority: 1 });
+            }
             
             if (nextGoal) {
                 nextGoal.isActive = true;
@@ -61,7 +72,7 @@ const addIncomeToActiveGoal = async (userId, amount, jobId) => {
                 await createNotification({
                     recipient: userId,
                     type: 'goal_activated',
-                    message: `New active goal: ${nextGoal.description}`
+                    message: `New active goal: ${nextGoal.description}${nextGoal.isPriority ? ' (Priority Goal)' : ''}`
                 });
             }
             
@@ -253,7 +264,8 @@ exports.updateGoal = async (req, res) => {
             description, 
             completed, 
             isActive,
-            priority
+            priority,
+            isPriority
         } = req.body;
         
         // Find the goal
@@ -297,6 +309,7 @@ exports.updateGoal = async (req, res) => {
                 completed: shouldComplete,
                 isActive: shouldComplete ? false : (isActive !== undefined ? isActive : goal.isActive),
                 priority: priority !== undefined ? priority : goal.priority,
+                isPriority: isPriority !== undefined ? isPriority : goal.isPriority,
                 completedAt: shouldComplete && !goal.completed ? new Date() : goal.completedAt
             },
             { new: true }
@@ -323,13 +336,24 @@ exports.updateGoal = async (req, res) => {
                 }
             });
 
-            // If this was the active goal, activate the next highest priority pending goal
+            // If this was the active goal, activate the next pending goal, prioritizing priority goals
             if (needsActivationUpdate) {
-                const nextGoal = await Goal.findOne({ 
+                // First, check for priority goals
+                let nextGoal = await Goal.findOne({ 
                     user: req.user.id, 
                     completed: false,
-                    isActive: false
-                }).sort({ priority: 1 });
+                    isActive: false,
+                    isPriority: true
+                }).sort({ createdAt: 1 }); // Get the oldest priority goal first
+                
+                // If no priority goal is found, get the next goal by priority number
+                if (!nextGoal) {
+                    nextGoal = await Goal.findOne({ 
+                        user: req.user.id, 
+                        completed: false,
+                        isActive: false
+                    }).sort({ priority: 1 });
+                }
 
                 if (nextGoal) {
                     nextGoal.isActive = true;
@@ -338,7 +362,7 @@ exports.updateGoal = async (req, res) => {
                     await createNotification({
                         recipient: req.user.id,
                         type: 'goal_activated',
-                        message: `New active goal: ${nextGoal.description}`
+                        message: `New active goal: ${nextGoal.description}${nextGoal.isPriority ? ' (Priority Goal)' : ''}`
                     });
                 }
             }

@@ -9,6 +9,7 @@ const goalSchema = new mongoose.Schema({
     completed: { type: Boolean, default: false },
     isActive: { type: Boolean, default: false },
     priority: { type: Number, default: 0 },
+    isPriority: { type: Boolean, default: false },
     completedAt: { type: Date },
     createdAt: { type: Date, default: Date.now }
 });
