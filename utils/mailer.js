@@ -3,11 +3,14 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 // Initialize SendGrid with API key
-if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'SG.your_actual_sendgrid_api_key_here') {
+if (process.env.SENDGRID_API_KEY && 
+    process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
+    !process.env.SENDGRID_API_KEY.includes('your_') &&
+    process.env.SENDGRID_API_KEY.startsWith('SG.')) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   console.log("✅ SendGrid API key configured");
 } else {
-  console.log("⚠️ SendGrid API key not properly configured, will try to use Gmail as fallback");
+  console.log("⚠️ SendGrid API key not provided or invalid, will try to use Gmail as fallback");
 }
 
 /**
@@ -48,7 +51,10 @@ const sendVerificationEmail = async (email, token) => {
     };
 
     // Check if SendGrid API key is properly configured (not the default placeholder)
-    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'SG.your_actual_sendgrid_api_key_here') {
+    if (process.env.SENDGRID_API_KEY && 
+        process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
+        !process.env.SENDGRID_API_KEY.includes('your_') &&
+        process.env.SENDGRID_API_KEY.startsWith('SG.')) {
       console.log(`📨 Attempting to send via SendGrid`);
       try {
         await sgMail.send(emailContent);
@@ -147,7 +153,10 @@ const sendResetEmail = async (to, resetLink) => {
     };
 
     // Check if SendGrid API key is properly configured (not the default placeholder)
-    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY !== 'SG.your_actual_sendgrid_api_key_here') {
+    if (process.env.SENDGRID_API_KEY && 
+        process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
+        !process.env.SENDGRID_API_KEY.includes('your_') &&
+        process.env.SENDGRID_API_KEY.startsWith('SG.')) {
       console.log(`📨 Attempting to send via SendGrid`);
       try {
         await sgMail.send(emailContent);
@@ -208,7 +217,9 @@ const sendResetEmail = async (to, resetLink) => {
 // Verify email configuration
 const verifyConnection = async () => {
   const hasSendGrid = Boolean(process.env.SENDGRID_API_KEY && 
-                             process.env.SENDGRID_API_KEY !== 'SG.your_actual_sendgrid_api_key_here');
+                             process.env.SENDGRID_API_KEY.startsWith('SG.') &&
+                             process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
+                             !process.env.SENDGRID_API_KEY.includes('your_'));
   const hasGmail = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
   
   console.log(`📧 Email configuration check:`);
