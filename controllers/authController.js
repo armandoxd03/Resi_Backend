@@ -52,7 +52,7 @@ exports.register = async (req, res) => {
         const user = new User({
             ...req.body,
             password: hashedPassword,
-            profileImage: req.files?.profileImage?.[0]?.buffer.toString('base64') || '',
+            profilePicture: req.files?.profilePicture?.[0]?.buffer.toString('base64') || '',
             idFrontImage: req.files?.idFrontImage?.[0]?.buffer.toString('base64') || '',
             idBackImage: req.files?.idBackImage?.[0]?.buffer.toString('base64') || '',
             isVerified: false,
@@ -502,6 +502,65 @@ exports.verifyToken = async (req, res) => {
     res.status(200).json({ valid: true, user });
   } catch (error) {
     res.status(401).json({ valid: false, message: "Invalid or expired token" });
+  }
+};
+
+// Verify Email
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification token is required",
+        alert: "Invalid verification link"
+      });
+    }
+
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired verification token",
+        alert: "This verification link is invalid or has expired"
+      });
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationExpires = undefined;
+    await user.save();
+
+    // ✅ LOG ACTIVITY: Email verified
+    await createActivityLog({
+      userId: user._id,
+      userName: `${user.firstName} ${user.lastName}`,
+      type: 'email_verification',
+      description: 'Email successfully verified',
+      metadata: {
+        email: user.email,
+        verifiedAt: new Date()
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Email successfully verified",
+      alert: "Your email has been verified. You can now log in."
+    });
+  } catch (error) {
+    console.error("Email verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Email verification failed",
+      error: error.message,
+      alert: "Email verification failed. Please try again."
+    });
   }
 };
 
