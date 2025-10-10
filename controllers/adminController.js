@@ -357,30 +357,40 @@ exports.downloadUsersPdf = async (req, res) => {
 
 // Get single user by ID
 exports.getUserById = async (req, res) => {
-    let user = null;
     try {
-        user = await User.findById(req.params.id).select('-password');
+        // Validate if the id is a valid MongoDB ObjectId
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid user ID format",
+                alert: "The user ID provided is not valid"
+            });
+        }
+        
+        const user = await User.findById(req.params.id).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+                alert: "The requested user could not be found"
+            });
+        }
+        
+        return res.status(200).json({
+            success: true,
+            user,
+            alert: "User retrieved successfully"
+        });
     } catch (err) {
-        // ignore error, will return default user
+        console.error("Error retrieving user:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Error retrieving user",
+            error: err.message,
+            alert: "There was a problem retrieving the user information"
+        });
     }
-    if (!user) {
-        user = {
-            _id: req.params.id,
-            firstName: '',
-            lastName: '',
-            email: '',
-            userType: '',
-            isVerified: false,
-            notificationPreferences: { job: false, message: false },
-            languagePreference: '',
-            // add any other default fields as needed
-        };
-    }
-    res.status(200).json({
-        success: true,
-        user,
-        alert: user.firstName ? "User retrieved successfully" : "Default user returned (not found)"
-    });
 };
 
 // Get user activity

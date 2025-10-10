@@ -17,6 +17,7 @@ router.post('/:id/apply', auth.verify, jobController.applyJob);
 router.delete('/:id/cancel-application', auth.verify, jobController.cancelApplication);
 router.post('/:id/assign', auth.verify, jobController.assignWorker);
 router.post('/:id/reject', auth.verify, jobController.rejectApplication);
+router.post('/:id/invite', auth.verify, jobController.inviteWorker);
 router.put('/:jobId/applicants/:userId', auth.verify, jobController.updateApplicantStatus);
 router.put('/:id/close', auth.verify, jobController.closeJob);
 router.put('/:id/complete', auth.verify, jobController.completeJob);

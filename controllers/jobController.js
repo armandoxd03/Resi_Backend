@@ -1237,3 +1237,159 @@ exports.updateApplicantStatus = async (req, res) => {
         });
     }
 };
+// POST /api/jobs/:id/invite → Invite a worker to a job
+exports.inviteWorker = async (req, res) => {
+    try {
+        console.log('Invite worker API called with params:', {
+            id: req.params.id,
+            workerId: req.body.workerId,
+            userId: req.user?.id
+        });
+        
+        const { id } = req.params;
+        const { workerId } = req.body;
+
+        // Validate input
+        if (!workerId) {
+            console.log('Missing workerId in request body');
+            return res.status(400).json({
+                message: "Missing workerId",
+                alert: "Worker ID is required"
+            });
+        }
+
+        // Find the job
+        const job = await Job.findById(id).populate('postedBy', 'firstName lastName');
+        if (!job) {
+            console.log(`Job not found with ID: ${id}`);
+            return res.status(404).json({
+                message: "Job not found",
+                alert: "This job is no longer available"
+            });
+        }
+
+        // Check authorization - only job poster can invite
+        if (job.postedBy._id.toString() !== req.user.id) {
+            return res.status(403).json({
+                message: "Not authorized",
+                alert: "You can only invite workers to your own jobs"
+            });
+        }
+
+        // Check if job is still open
+        if (!job.isOpen) {
+            return res.status(400).json({
+                message: "Job is closed",
+                alert: "This job is no longer accepting applications"
+            });
+        }
+
+        // Find the worker
+        const worker = await User.findById(workerId);
+        if (!worker) {
+            return res.status(404).json({
+                message: "Worker not found",
+                alert: "This worker does not exist"
+            });
+        }
+
+        // Check if worker has right type
+        if (worker.userType !== 'employee' && worker.userType !== 'both') {
+            return res.status(400).json({
+                message: "Invalid worker type",
+                alert: "This user cannot be invited to jobs"
+            });
+        }
+
+        // Check if already invited (based on notifications)
+        try {
+            console.log('Checking for existing invitation with:', {
+                workerId,
+                jobId: id
+            });
+            
+            let recipientId, relatedJobId;
+            try {
+                recipientId = new mongoose.Types.ObjectId(workerId);
+                relatedJobId = new mongoose.Types.ObjectId(id);
+            } catch (error) {
+                console.error('Error converting IDs to ObjectId:', error);
+                recipientId = workerId;
+                relatedJobId = id;
+            }
+            
+            const alreadyInvited = await mongoose.connection.collection('notifications').findOne({
+                recipient: recipientId,
+                type: 'job_invitation',
+                relatedJob: relatedJobId
+            });
+            
+            console.log('Existing invitation check result:', alreadyInvited ? 'Found' : 'Not found');
+
+            if (alreadyInvited) {
+                return res.status(200).json({
+                    message: "Already invited",
+                    alert: "This worker has already been invited to this job"
+                });
+            }
+        } catch (error) {
+            console.error('Error checking for existing invitation:', error);
+            // Continue with invitation process even if check fails
+        }
+
+        // Create notification for the worker
+        try {
+            console.log('Creating notification for worker:', {
+                workerId,
+                jobTitle: job.title,
+                jobId: job._id
+            });
+            
+            await createNotification({
+                recipient: workerId,
+                type: 'job_invitation',
+                message: `You've been invited to apply for "${job.title}" by ${job.postedBy.firstName} ${job.postedBy.lastName}`,
+                relatedJob: job._id
+            });
+            
+            console.log('Notification created successfully');
+
+            // Send SMS notification if worker has enabled it
+            if (worker.notificationPreferences?.sms) {
+                try {
+                    await sendSMS(
+                        workerId,
+                        `Job invitation: "${job.title}" (₱${job.price}) in ${job.barangay}. Check your notifications to apply.`
+                    );
+                    console.log('SMS notification sent');
+                } catch (smsError) {
+                    console.error('Error sending SMS notification:', smsError);
+                    // Continue even if SMS fails
+                }
+            }
+
+            res.status(200).json({
+                success: true,
+                message: "Invitation sent successfully",
+                alert: `Invitation sent to ${worker.firstName} ${worker.lastName}`
+            });
+        } catch (notificationError) {
+            console.error('Error creating notification:', notificationError);
+            
+            // Still return success to the client if everything else worked
+            res.status(200).json({
+                success: true,
+                message: "Invitation processed",
+                alert: `Invitation processed for ${worker.firstName} ${worker.lastName}`,
+                notificationError: notificationError.message
+            });
+        }
+    } catch (err) {
+        console.error('Error inviting worker:', err);
+        res.status(500).json({
+            message: "Error inviting worker",
+            error: err.message,
+            alert: "Failed to send invitation"
+        });
+    }
+};

@@ -20,6 +20,7 @@ const passwordResetTokenRoutes = require("./routes/passwordResetRoutes");
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const exportRoutes = require('./routes/exportRoutes');
+const { createNotification } = require('./utils/notificationHelper');
 
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI =
@@ -100,6 +101,40 @@ app.use("/api/reset-tokens", passwordResetTokenRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/export", exportRoutes);
+
+// Test notification endpoint for debugging
+app.post("/api/test-notification", async (req, res) => {
+  try {
+    const { recipient, message, type } = req.body;
+    
+    if (!recipient || !message || !type) {
+      return res.status(400).json({ 
+        error: "Missing required fields",
+        required: ["recipient", "message", "type"] 
+      });
+    }
+    
+    const result = await createNotification({
+      recipient,
+      message,
+      type,
+      relatedJob: req.body.relatedJob || null
+    });
+    
+    res.status(200).json({
+      success: true,
+      notification: result,
+      message: "Test notification created successfully"
+    });
+  } catch (error) {
+    console.error('Test notification error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
 
 // ✅ Enhanced Health check with database status
 app.get("/health", async (req, res) => {

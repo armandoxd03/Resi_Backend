@@ -13,13 +13,19 @@ const notificationSchema = new mongoose.Schema({
             'admin_message',
             'verification_needed',
             'security_alert',
-             'goal_created',
-             'job_match', 
+            'goal_created',
+            'job_match', 
             'application_sent',
             'rating_reported',
             'user_reported',  
             'report_resolved',
-            'profile_update' 
+            'profile_update',
+            'job_invitation',
+            'application_cancelled',
+            'application_rejected',
+            'application_update',
+            'goal_income_added',
+            'goal_completed_job'
         ],
         required: true
     },
