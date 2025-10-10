@@ -29,6 +29,7 @@ router.post('/reset', authController.resetPassword);
 
 // Email verification (no rate limit)
 router.post('/verify/resend', authController.resendVerification);
+router.post('/verify-email', authController.verifyEmail);
 
 // Delete unverified
 router.post('/delete-unverified', authController.deleteUnverified);

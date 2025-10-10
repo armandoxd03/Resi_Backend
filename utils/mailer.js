@@ -17,7 +17,15 @@ const transporter = nodemailer.createTransport({
  */
 const sendVerificationEmail = async (email, token) => {
     try {
-        const verificationLink = `${process.env.FRONTEND_URL}/verify-email/${token}`;
+        // Handle multiple frontend URLs in the environment variable
+        let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        
+        // If there are multiple URLs (comma-separated), use the first one
+        if (frontendUrl.includes(',')) {
+            frontendUrl = frontendUrl.split(',')[0].trim();
+        }
+        
+        const verificationLink = `${frontendUrl}/verify-email/${token}`;
         
         const mailOptions = {
             from: `ResiLinked <${process.env.EMAIL_USER}>`,
