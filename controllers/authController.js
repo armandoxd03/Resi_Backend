@@ -2,6 +2,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const { createAccessToken } = require('../middleware/auth');
 const { sendVerificationEmail, sendResetEmail } = require('../utils/mailer');
@@ -49,12 +50,57 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(req.body.password, 10);
         const verificationToken = crypto.randomBytes(20).toString('hex');
 
+        // Process files based on storage type
+        let profilePicture = '';
+        let idFrontImage = '';
+        let idBackImage = '';
+        
+        if (req.files) {
+            // Check if we're using memory storage (buffer available)
+            if (req.files.profilePicture && req.files.profilePicture[0] && req.files.profilePicture[0].buffer) {
+                profilePicture = req.files.profilePicture[0].buffer.toString('base64');
+            } 
+            // If using disk storage, read from file path
+            else if (req.files.profilePicture && req.files.profilePicture[0] && req.files.profilePicture[0].path) {
+                try {
+                    const filePath = req.files.profilePicture[0].path;
+                    profilePicture = fs.readFileSync(filePath, {encoding: 'base64'});
+                } catch (err) {
+                    console.error('Error reading profile picture:', err);
+                }
+            }
+
+            if (req.files.idFrontImage && req.files.idFrontImage[0] && req.files.idFrontImage[0].buffer) {
+                idFrontImage = req.files.idFrontImage[0].buffer.toString('base64');
+            }
+            else if (req.files.idFrontImage && req.files.idFrontImage[0] && req.files.idFrontImage[0].path) {
+                try {
+                    const filePath = req.files.idFrontImage[0].path;
+                    idFrontImage = fs.readFileSync(filePath, {encoding: 'base64'});
+                } catch (err) {
+                    console.error('Error reading ID front image:', err);
+                }
+            }
+
+            if (req.files.idBackImage && req.files.idBackImage[0] && req.files.idBackImage[0].buffer) {
+                idBackImage = req.files.idBackImage[0].buffer.toString('base64');
+            }
+            else if (req.files.idBackImage && req.files.idBackImage[0] && req.files.idBackImage[0].path) {
+                try {
+                    const filePath = req.files.idBackImage[0].path;
+                    idBackImage = fs.readFileSync(filePath, {encoding: 'base64'});
+                } catch (err) {
+                    console.error('Error reading ID back image:', err);
+                }
+            }
+        }
+
         const user = new User({
             ...req.body,
             password: hashedPassword,
-            profilePicture: req.files?.profilePicture?.[0]?.buffer.toString('base64') || '',
-            idFrontImage: req.files?.idFrontImage?.[0]?.buffer.toString('base64') || '',
-            idBackImage: req.files?.idBackImage?.[0]?.buffer.toString('base64') || '',
+            profilePicture,
+            idFrontImage,
+            idBackImage,
             isVerified: false,
             verificationToken,
             verificationExpires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours

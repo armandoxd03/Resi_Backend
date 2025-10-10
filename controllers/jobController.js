@@ -4,6 +4,7 @@ const User = require('../models/User');
 const { findMatchingJobs } = require('../utils/matchingEngine');
 const { createNotification } = require('../utils/notificationHelper');
 const { sendSMS } = require('../utils/smsService');
+const { addIncomeToActiveGoal } = require('./goalController');
 
 //  POST /api/jobs → Post a new job
 exports.postJob = async (req, res) => {
@@ -713,6 +714,210 @@ exports.closeJob = async (req, res) => {
       alert: "Failed to close job"
     });
   }
+};
+
+// PUT /api/jobs/:id/complete → Mark a job as completed and transfer income to worker's active goal
+exports.completeJob = async (req, res) => {
+    try {
+        console.log('completeJob called for job ID:', req.params.id);
+        
+        const job = await Job.findById(req.params.id)
+            .populate('postedBy', 'firstName lastName')
+            .populate('assignedTo', 'firstName lastName');
+        
+        if (!job) {
+            return res.status(404).json({
+                message: "Job not found",
+                alert: "This job no longer exists"
+            });
+        }
+        
+        // Check authorization - only job poster or admin can mark as complete
+        const jobPostedById = job.postedBy._id.toString();
+        const currentUserId = req.user.id.toString();
+        
+        if (jobPostedById !== currentUserId && req.user.userType !== 'admin') {
+            return res.status(403).json({
+                message: "Not authorized",
+                alert: "You can only mark your own jobs as completed"
+            });
+        }
+        
+        // Check if job has an assigned worker
+        if (!job.assignedTo) {
+            return res.status(400).json({
+                message: "No worker assigned",
+                alert: "You must assign a worker to the job before marking it as completed"
+            });
+        }
+        
+        // Check if job is already completed
+        if (job.completed) {
+            return res.status(400).json({
+                message: "Job already completed",
+                alert: "This job has already been marked as completed"
+            });
+        }
+        
+        // Mark job as completed
+        job.completed = true;
+        job.isOpen = false;
+        job.status = 'completed';
+        await job.save();
+        
+        // Add the job income to the worker's active goal
+        const workerId = job.assignedTo._id.toString();
+        const jobIncome = job.price;
+        
+        // Call the addIncomeToActiveGoal function from goalController
+        const updatedGoal = await addIncomeToActiveGoal(workerId, jobIncome, job._id);
+        
+        // Create notifications
+        await createNotification({
+            recipient: workerId,
+            type: 'job_completed',
+            message: `Job "${job.title}" has been marked as completed`,
+            relatedJob: job._id
+        });
+        
+        // Notify the worker if income was added to their goal
+        if (updatedGoal) {
+            await createNotification({
+                recipient: workerId,
+                type: 'goal_income_added',
+                message: `₱${jobIncome} from job "${job.title}" was added to your goal: ${updatedGoal.description}`,
+                relatedJob: job._id
+            });
+            
+            // If the goal was completed, send a special notification
+            if (updatedGoal.completed) {
+                await createNotification({
+                    recipient: workerId,
+                    type: 'goal_completed_job',
+                    message: `Your job completion helped you reach your goal: ${updatedGoal.description}!`,
+                    relatedJob: job._id
+                });
+            }
+        }
+        
+        res.status(200).json({
+            message: "Job marked as completed",
+            job: {
+                id: job._id,
+                title: job.title,
+                worker: job.assignedTo ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}` : 'Unknown',
+                employer: job.postedBy ? `${job.postedBy.firstName} ${job.postedBy.lastName}` : 'Unknown',
+                income: jobIncome
+            },
+            goalUpdated: !!updatedGoal,
+            goal: updatedGoal,
+            alert: updatedGoal 
+                ? `Job completed and ₱${jobIncome} was added to ${job.assignedTo.firstName}'s financial goal` 
+                : "Job completed successfully"
+        });
+    } catch (err) {
+        console.error('Error completing job:', err);
+        res.status(500).json({
+            message: "Error marking job as completed",
+            error: err.message,
+            alert: "Failed to complete job"
+        });
+    }
+};
+
+// PUT /api/jobs/:id → Edit a job
+exports.editJob = async (req, res) => {
+    try {
+        console.log('editJob called for job ID:', req.params.id);
+        console.log('User ID attempting edit:', req.user.id);
+        console.log('User type:', req.user.userType);
+        
+        // Get the job with populated postedBy field
+        const job = await Job.findById(req.params.id).populate('postedBy', '_id');
+        if (!job) {
+            return res.status(404).json({
+                message: "Job not found",
+                alert: "This job no longer exists"
+            });
+        }
+
+        console.log('Job found:', {
+            jobId: job._id,
+            postedBy: job.postedBy ? job.postedBy._id : 'undefined',
+            postedByType: job.postedBy ? typeof job.postedBy._id : 'undefined'
+        });
+
+        // Get the string representations for safe comparison
+        const jobOwnerId = job.postedBy ? job.postedBy._id.toString() : '';
+        const currentUserId = req.user.id ? req.user.id.toString() : '';
+        
+        console.log('ID comparison:', {
+            jobOwnerId,
+            currentUserId,
+            isMatch: jobOwnerId === currentUserId,
+            isAdmin: req.user.userType === 'admin'
+        });
+        
+        // Check if the job is owned by the user trying to edit it
+        if (jobOwnerId !== currentUserId && req.user.userType !== 'admin') {
+            console.log('Authorization failed for job edit');
+            return res.status(403).json({ 
+                message: "Not authorized",
+                alert: "You can only edit your own jobs"
+            });
+        }
+
+        // Check if the job is already completed
+        if (job.completed) {
+            return res.status(400).json({
+                message: "Cannot edit completed job",
+                alert: "This job is already completed and cannot be edited"
+            });
+        }
+
+        // Validate required fields
+        const { title, description, price, barangay } = req.body;
+        if (!title || !description || !price || !barangay) {
+            return res.status(400).json({
+                message: "Missing required fields",
+                required: ["title", "description", "price", "barangay"],
+                alert: "Please fill all required fields"
+            });
+        }
+
+        // Update job fields
+        job.title = title;
+        job.description = description;
+        job.price = price;
+        job.barangay = barangay;
+        
+        // Optional fields
+        if (req.body.skillsRequired) job.skillsRequired = req.body.skillsRequired;
+        
+        await job.save();
+
+        res.status(200).json({
+            message: "Job updated successfully",
+            job: job,
+            alert: "Job has been updated"
+        });
+    } catch (err) {
+        console.error('Error in editJob:', err);
+        
+        // Provide a more helpful error message
+        let errorMessage = "Failed to update job";
+        if (err.name === 'CastError' && err.kind === 'ObjectId') {
+            errorMessage = "Invalid job ID format";
+        } else if (err.message.includes('not authorized')) {
+            errorMessage = "Not authorized to edit this job";
+        }
+        
+        res.status(500).json({ 
+            message: "Error updating job", 
+            error: err.message,
+            alert: errorMessage
+        });
+    }
 };
 
 // DELETE /api/jobs/:id → Delete a job

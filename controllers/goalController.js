@@ -102,6 +102,9 @@ const addIncomeToActiveGoal = async (userId, amount, jobId) => {
     }
 };
 
+// Export the function so it can be used by other controllers
+exports.addIncomeToActiveGoal = addIncomeToActiveGoal;
+
 exports.createGoal = async (req, res) => {
     try {
         const { targetAmount, description, currentAmount = 0 } = req.body;
