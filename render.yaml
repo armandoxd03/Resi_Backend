@@ -12,6 +12,10 @@ services:
         fromSecret: MONGODB_URI
       - key: JWT_SECRET
         fromSecret: JWT_SECRET
+      - key: SENDGRID_API_KEY
+        fromSecret: SENDGRID_API_KEY
+      - key: EMAIL_FROM
+        value: "ResiLinked <resilinked@gmail.com>"
       - key: EMAIL_USER
         fromSecret: EMAIL_USER
       - key: EMAIL_PASS
