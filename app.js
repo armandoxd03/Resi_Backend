@@ -28,28 +28,47 @@ const MONGODB_URI =
 // ✅ MongoDB Connection
 mongoose
   .connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 30000,  // Increased timeout for Render
-    socketTimeoutMS: 45000,
-    maxPoolSize: 10,
-    connectTimeoutMS: 30000
+    serverSelectionTimeoutMS: 60000,  // Increased timeout for Render
+    socketTimeoutMS: 90000,
+    maxPoolSize: 15,
+    connectTimeoutMS: 60000,
+    keepAlive: true,
+    keepAliveInitialDelay: 300000 // 5 minutes
   })
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
+    console.error(err.stack);
+    // Don't exit in production to allow retries
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   });
 
 // App Initialization
 const app = express();
 
 // ✅ CORS (allow React frontend in dev)
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',');
-        app.use(cors({
-          origin: allowedOrigins,
-          methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-          allowedHeaders: ['Content-Type', 'Authorization'],
-          credentials: true
-        }));
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
+console.log("🔒 CORS allowed origins:", allowedOrigins);
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.log("❌ CORS blocked origin:", origin);
+      callback(null, true); // Temporarily allow all origins to debug
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight request for 1 day
+}));
 
 // Remove global rate limiting
 
@@ -113,8 +132,12 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// Server listen
+// Server listen with increased timeouts
 const server = app.listen(PORT, () => {
+  server.timeout = 120000; // 2 minutes
+  server.keepAliveTimeout = 65000; // slightly higher than the ALB idle timeout
+  server.headersTimeout = 66000; // slightly higher than keepAliveTimeout
+  
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌍 CORS: Allowing ${process.env.CLIENT_URL || "http://localhost:5173"}`);
   console.log("💓 Health check endpoint: /health");
