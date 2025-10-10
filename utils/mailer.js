@@ -1,23 +1,15 @@
 ﻿const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-// Email transporter configuration
+// SendGrid Email transporter configuration
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // use SSL
+    host: 'smtp.sendgrid.net',
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        // do not fail on invalid certs
-        rejectUnauthorized: false
-    },
-    // Set timeout to 30 seconds
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000
+        user: 'apikey', // SendGrid always uses 'apikey' as the username
+        pass: process.env.SENDGRID_API_KEY // Your SendGrid API Key
+    }
 });
 
 /**
@@ -32,7 +24,7 @@ const sendVerificationEmail = async (email, token) => {
         const verificationLink = `${frontendUrl}/verify-email/${token}`;
         
         const mailOptions = {
-            from: `ResiLinked <${process.env.EMAIL_USER}>`,
+            from: process.env.EMAIL_FROM || 'ResiLinked <noreply@resilinked.com>',
             to: email,
             subject: "Verify Your ResiLinked Account",
             html: `
@@ -96,7 +88,7 @@ const sendResetEmail = async (to, resetLink) => {
         while (attempts < maxAttempts) {
             try {
                 await transporter.sendMail({
-                    from: `ResiLinked <${process.env.EMAIL_USER}>`,
+                    from: process.env.EMAIL_FROM || 'ResiLinked <noreply@resilinked.com>',
                     to,
                     subject: "ResiLinked Password Reset",
                     html: `
