@@ -19,7 +19,6 @@ router.post('/:id/assign', auth.verify, jobController.assignWorker);
 router.post('/:id/reject', auth.verify, jobController.rejectApplication);
 router.put('/:jobId/applicants/:userId', auth.verify, jobController.updateApplicantStatus);
 router.put('/:id/close', auth.verify, jobController.closeJob);
-router.put('/:id/complete', auth.verify, jobController.completeJob);
 router.delete('/:id', auth.verify, jobController.deleteJob);
 
 module.exports = router;

@@ -263,31 +263,24 @@ exports.setGoal = async (req, res) => {
 // ✅ GET WORKERS
 exports.getWorkers = async (req, res) => {
   try {
-    const { location, skills, search, page = 1, limit = 20 } = req.query;
+    const { barangay, skill, search, page = 1, limit = 20 } = req.query;
 
     let query = {
       userType: { $in: ['employee', 'both'] },
       isVerified: true,
     };
 
-    if (location) query.barangay = location;
-    
-    if (skills && Array.isArray(skills)) {
-      query.skills = { $in: skills };
-    } else if (skills && typeof skills === 'string') {
-      query.skills = { $in: skills.split(',') };
-    }
-    
+    if (barangay) query.barangay = barangay;
+    if (skill) query.skills = { $in: skill.split(',') };
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
         { skills: { $in: [new RegExp(search, 'i')] } },
-        { bio: { $regex: search, $options: 'i' } }
       ];
     }
 
-    const [workers, total] = await Promise.all([
+    const [users, total] = await Promise.all([
       User.find(query)
         .select('-password -idNumber -idFrontImage -idBackImage')
         .sort({ createdAt: -1 })
@@ -296,37 +289,33 @@ exports.getWorkers = async (req, res) => {
       User.countDocuments(query),
     ]);
 
-    try {
-      await createActivityLog({
-        userId: req.user.id,
-        userName: `${req.user.firstName} ${req.user.lastName}`,
-        type: 'search',
-        description: 'User searched for workers',
-        metadata: {
-          searchParams: {
-            location: location || 'all',
-            skills: skills || 'all',
-            search: search || '',
-            page,
-            limit,
-            results: total,
-          },
+    await createActivityLog({
+      userId: req.user.id,
+      userName: `${req.user.firstName} ${req.user.lastName}`,
+      type: 'search',
+      description: 'User searched for workers',
+      metadata: {
+        searchParams: {
+          barangay: barangay || 'all',
+          skill: skill || 'all',
+          search: search || '',
+          page,
+          limit,
+          results: total,
         },
-      });
-    } catch (logError) {
-      console.error('Error creating activity log:', logError);
-    }
+      },
+    });
 
     res.status(200).json({
       success: true,
-      workers, // Changed from users to workers to match frontend expectation
+      users,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / limit),
       },
-      alert: workers.length
+      alert: users.length
         ? `Found ${total} workers`
         : "No workers found matching your criteria",
     });

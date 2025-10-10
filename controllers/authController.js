@@ -298,16 +298,7 @@ exports.resetRequest = async (req, res) => {
         const user = await User.findOne({ email });
         if (user) {
             const token = createAccessToken(user);
-            
-            // Handle multiple frontend URLs in the environment variable
-            let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            
-            // If there are multiple URLs (comma-separated), use the first one
-            if (frontendUrl.includes(',')) {
-                frontendUrl = frontendUrl.split(',')[0].trim();
-            }
-            
-            const link = `${frontendUrl}/reset-password/${token}`;
+            const link = `${process.env.FRONTEND_URL}/reset-password/${token}`;
 
             await sendResetEmail(user.email, link);
 
@@ -490,80 +481,6 @@ exports.resendVerification = async (req, res) => {
             message: "Error resending verification",
             error: error.message,
             alert: "Failed to resend verification email"
-        });
-    }
-};
-
-// Verify Email
-exports.verifyEmail = async (req, res) => {
-    try {
-        const { token } = req.body;
-        
-        if (!token) {
-            return res.status(400).json({
-                success: false,
-                message: "Verification token is required",
-                alert: "Verification token is missing"
-            });
-        }
-
-        const user = await User.findOne({
-            verificationToken: token,
-            verificationExpires: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid or expired verification token",
-                alert: "This verification link has expired or is invalid. Please request a new one."
-            });
-        }
-
-        // Mark user as verified
-        user.isVerified = true;
-        user.verificationToken = undefined;
-        user.verificationExpires = undefined;
-        await user.save();
-
-        // ✅ LOG ACTIVITY: Email verified
-        await createActivityLog({
-            userId: user._id,
-            userName: `${user.firstName} ${user.lastName}`,
-            type: 'email_verification',
-            description: 'Email verified successfully',
-            metadata: {
-                email: user.email,
-                verifiedAt: new Date()
-            }
-        });
-
-        // Create a welcome notification
-        await createNotification({
-            recipient: user._id,
-            type: 'welcome',
-            message: 'Welcome to ResiLinked! Your account has been verified.'
-        });
-
-        res.status(200).json({
-            success: true,
-            message: "Email verified successfully",
-            alert: "Your email has been verified. You can now log in.",
-            user: {
-                id: user._id,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName
-            }
-        });
-
-    } catch (error) {
-        console.error("Email verification error:", error);
-        res.status(500).json({
-            success: false,
-            message: "Verification failed",
-            error: error.message,
-            alert: "Failed to verify your email. Please try again."
         });
     }
 };

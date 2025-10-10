@@ -4,7 +4,6 @@ const User = require('../models/User');
 const { findMatchingJobs } = require('../utils/matchingEngine');
 const { createNotification } = require('../utils/notificationHelper');
 const { sendSMS } = require('../utils/smsService');
-const goalController = require('./goalController');
 
 //  POST /api/jobs → Post a new job
 exports.postJob = async (req, res) => {
@@ -499,18 +498,9 @@ exports.assignWorker = async (req, res) => {
 // GET /api/jobs/search → Search jobs with filters
 exports.search = async (req, res) => {
     try {
-        const { search, skill, barangay, minPrice, maxPrice, sortBy = 'datePosted', order = 'desc', page = 1, limit = 10 } = req.query;
+        const { skill, barangay, minPrice, maxPrice, sortBy = 'datePosted', order = 'desc', page = 1, limit = 10 } = req.query;
         
         let query = { isOpen: true };
-        
-        // Handle text search
-        if (search) {
-            query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { skillsRequired: { $in: [new RegExp(search, 'i')] } }
-            ];
-        }
         
         if (skill) query.skillsRequired = { $in: skill.split(',') };
         if (barangay) query.barangay = barangay;
@@ -697,101 +687,6 @@ exports.closeJob = async (req, res) => {
       message: "Error closing job", 
       error: err.message,
       alert: "Failed to close job"
-    });
-  }
-};
-
-// PUT /api/jobs/:id/complete → Mark a job as completed and update goals
-exports.completeJob = async (req, res) => {
-  try {
-    const job = await Job.findById(req.params.id)
-      .populate('assignedTo', 'firstName lastName email');
-    
-    if (!job) {
-      return res.status(404).json({ 
-        message: "Job not found",
-        alert: "This job is no longer available"
-      });
-    }
-
-    // Check if the job belongs to the current user
-    if (job.postedBy.toString() !== req.user.id) {
-      return res.status(403).json({ 
-        message: "Not authorized",
-        alert: "You can only complete your own jobs"
-      });
-    }
-
-    // Check if the job has been assigned to a worker
-    if (!job.assignedTo) {
-      return res.status(400).json({
-        message: "Job not assigned",
-        alert: "You need to assign a worker to this job before marking it complete"
-      });
-    }
-
-    // Check if the job is already completed
-    if (job.completed) {
-      return res.status(400).json({
-        message: "Job already completed",
-        alert: "This job has already been marked as completed"
-      });
-    }
-
-    // Mark job as completed
-    job.isOpen = false;
-    job.completed = true;
-    job.status = 'completed';
-    job.completedAt = new Date();
-
-    await job.save();
-
-    // Get the assigned worker's ID
-    const workerId = job.assignedTo._id;
-    
-    // Update the worker's goals with the job payment
-    const goalUpdateResult = await goalController.updateGoalsWithJobPayment(
-      workerId,
-      job.price,
-      job._id
-    );
-
-    // Notify the worker about job completion
-    await createNotification({
-      recipient: workerId,
-      type: 'job_completed',
-      message: `A job you worked on has been marked as completed: ${job.title} (₱${job.price})`,
-      relatedJob: job._id
-    });
-
-    // Send SMS notification if enabled
-    try {
-      await sendSMS(
-        workerId, 
-        `Job completed! ${job.title} (₱${job.price}) has been marked as completed.`
-      );
-    } catch (smsError) {
-      console.error('SMS notification error:', smsError);
-      // Continue even if SMS fails
-    }
-
-    res.status(200).json({ 
-      message: "Job completed successfully",
-      job: {
-        id: job._id,
-        title: job.title,
-        price: job.price,
-        worker: `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
-      },
-      goalUpdateResult,
-      alert: "Job has been marked as completed and payment has been processed"
-    });
-  } catch (err) {
-    console.error('Error completing job:', err);
-    res.status(500).json({ 
-      message: "Error completing job", 
-      error: err.message,
-      alert: "Failed to complete job"
     });
   }
 };
