@@ -38,26 +38,26 @@ const addIncomeToActiveGoal = async (userId, amount, jobId) => {
             activeGoal.isActive = false;
             activeGoal.completedAt = new Date();
             
-            // Find and activate the next goal if available
-            // First, check for priority goals
-            let nextGoal = await Goal.findOne({
+            // First look for priority goals, then fallback to regular order
+            const priorityGoal = await Goal.findOne({
                 user: userId,
                 completed: false,
                 isActive: false,
                 isPriority: true
-            }).sort({ createdAt: 1 }); // Get the oldest priority goal first
+            });
             
-            // If no priority goal is found, get the next goal by priority number
-            if (!nextGoal) {
-                nextGoal = await Goal.findOne({
-                    user: userId,
-                    completed: false,
-                    isActive: false
-                }).sort({ priority: 1 });
-            }
+            const nextGoal = priorityGoal || await Goal.findOne({
+                user: userId,
+                completed: false,
+                isActive: false
+            }).sort({ priority: 1 });
             
             if (nextGoal) {
                 nextGoal.isActive = true;
+                // If it was a priority goal, reset the priority flag
+                if (nextGoal.isPriority) {
+                    nextGoal.isPriority = false;
+                }
                 await nextGoal.save();
                 
                 // Add any excess amount to the next goal
@@ -72,7 +72,7 @@ const addIncomeToActiveGoal = async (userId, amount, jobId) => {
                 await createNotification({
                     recipient: userId,
                     type: 'goal_activated',
-                    message: `New active goal: ${nextGoal.description}${nextGoal.isPriority ? ' (Priority Goal)' : ''}`
+                    message: `New active goal: ${nextGoal.description}`
                 });
             }
             
@@ -336,24 +336,13 @@ exports.updateGoal = async (req, res) => {
                 }
             });
 
-            // If this was the active goal, activate the next pending goal, prioritizing priority goals
+            // If this was the active goal, activate the next highest priority pending goal
             if (needsActivationUpdate) {
-                // First, check for priority goals
-                let nextGoal = await Goal.findOne({ 
+                const nextGoal = await Goal.findOne({ 
                     user: req.user.id, 
                     completed: false,
-                    isActive: false,
-                    isPriority: true
-                }).sort({ createdAt: 1 }); // Get the oldest priority goal first
-                
-                // If no priority goal is found, get the next goal by priority number
-                if (!nextGoal) {
-                    nextGoal = await Goal.findOne({ 
-                        user: req.user.id, 
-                        completed: false,
-                        isActive: false
-                    }).sort({ priority: 1 });
-                }
+                    isActive: false
+                }).sort({ priority: 1 });
 
                 if (nextGoal) {
                     nextGoal.isActive = true;
@@ -362,7 +351,7 @@ exports.updateGoal = async (req, res) => {
                     await createNotification({
                         recipient: req.user.id,
                         type: 'goal_activated',
-                        message: `New active goal: ${nextGoal.description}${nextGoal.isPriority ? ' (Priority Goal)' : ''}`
+                        message: `New active goal: ${nextGoal.description}`
                     });
                 }
             }
@@ -523,6 +512,7 @@ exports.addIncome = async (req, res) => {
 exports.setActiveGoal = async (req, res) => {
     try {
         const goalId = req.params.id;
+        const { isPriority } = req.body;
         
         // Find the goal
         const goal = await Goal.findOne({ 
@@ -538,6 +528,20 @@ exports.setActiveGoal = async (req, res) => {
             });
         }
         
+        // If this is just setting as priority, don't activate it yet
+        if (isPriority === true) {
+            goal.isPriority = true;
+            await goal.save();
+            
+            return res.status(200).json({
+                message: "Goal set as priority",
+                goal,
+                alert: `"${goal.description}" will be activated when your current active goal is completed`
+            });
+        }
+        
+        // Otherwise activate it normally
+        
         // Deactivate all other goals
         await Goal.updateMany(
             { user: req.user.id, isActive: true },
@@ -546,6 +550,12 @@ exports.setActiveGoal = async (req, res) => {
         
         // Set this goal as active
         goal.isActive = true;
+        
+        // If it was a priority goal, clear the priority flag
+        if (goal.isPriority) {
+            goal.isPriority = false;
+        }
+        
         await goal.save();
         
         await createNotification({

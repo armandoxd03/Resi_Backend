@@ -49,7 +49,13 @@ mongoose
 const app = express();
 
 // ✅ CORS (allow React frontend in dev)
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
+let allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
+
+// Ensure localhost:5173 is always allowed for development
+if (!allowedOrigins.includes('http://localhost:5173')) {
+  allowedOrigins.push('http://localhost:5173');
+}
+
 console.log("🔒 CORS allowed origins:", allowedOrigins);
 
 app.use(cors({
@@ -57,11 +63,18 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
+    // Check if origin is allowed
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else if (origin.includes('localhost')) {
+      // Always allow localhost for development
+      console.log("🔓 CORS allowing localhost origin:", origin);
       callback(null, true);
     } else {
       console.log("❌ CORS blocked origin:", origin);
-      callback(null, true); // Temporarily allow all origins to debug
+      // In production, we should block unauthorized origins
+      // For now, allow all origins to debug
+      callback(null, true); 
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -72,7 +85,23 @@ app.use(cors({
 
 // Add explicit CORS headers for maximum compatibility
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  // Allow localhost:5173 explicitly for development
+  const origin = req.headers.origin;
+  if (origin && (origin.includes('localhost') || allowedOrigins.includes(origin))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+  }
+  
+  // Handle preflight OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400');
+    return res.status(204).end();
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
