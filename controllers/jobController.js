@@ -191,13 +191,37 @@ exports.getJob = async (req, res) => {
 exports.getMyMatches = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
-        const jobs = await findMatchingJobs(user);
+        
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+                alert: "Your account information could not be found"
+            });
+        }
+        
+        console.log(`Finding job matches for user ${user._id} (${user.firstName} ${user.lastName})`);
+        console.log(`User skills: ${user.skills?.join(', ') || 'None'}`);
+        
+        if (!user.skills || user.skills.length === 0) {
+            return res.status(200).json({
+                jobs: [],
+                alert: "Update your profile with skills to see job matches",
+                noSkills: true
+            });
+        }
+        
+        const matchingJobs = await findMatchingJobs(user);
+        
+        console.log(`Returning ${matchingJobs.length} job matches to user`);
 
         res.status(200).json({
-            jobs,
-            alert: `Found ${jobs.length} jobs matching your profile`
+            jobs: matchingJobs,
+            alert: matchingJobs.length > 0 
+                ? `Found ${matchingJobs.length} jobs matching your skills` 
+                : "No matching jobs found. Try updating your skills or checking back later."
         });
     } catch (err) {
+        console.error("Error in getMyMatches:", err);
         res.status(500).json({ 
             message: "Error fetching matches", 
             error: err.message,
