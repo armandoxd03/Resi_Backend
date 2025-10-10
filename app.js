@@ -48,27 +48,12 @@ mongoose
 // App Initialization
 const app = express();
 
-// ✅ CORS (allow React frontend in dev)
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
-console.log("🔒 CORS allowed origins:", allowedOrigins);
+// ✅ Configure CORS with enhanced options
+const configureCors = require('./middleware/corsHandler');
+app.use(configureCors());
 
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      console.log("❌ CORS blocked origin:", origin);
-      callback(null, true); // Temporarily allow all origins to debug
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true,
-  maxAge: 86400 // Cache preflight request for 1 day
-}));
+// Enable pre-flight requests for all routes
+app.options('*', configureCors());
 
 // Remove global rate limiting
 
