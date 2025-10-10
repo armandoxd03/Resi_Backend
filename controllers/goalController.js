@@ -219,10 +219,25 @@ exports.updateGoal = async (req, res) => {
     try {
         const { progress, completed, targetAmount, description, targetDate } = req.body;
         
+        // For debugging
+        console.log('Update goal request:', {
+            goalId: req.params.id,
+            userId: req.user.id,
+            body: req.body
+        });
+        
         // Auto-calculate completion status based on progress vs target
         const isCompleted = completed !== undefined ? 
             completed : 
             (targetAmount && progress >= targetAmount);
+        
+        console.log('Calculated completion status:', {
+            isCompleted,
+            providedCompleted: completed,
+            progress,
+            targetAmount,
+            calculation: progress >= targetAmount
+        });
         
         const updates = { 
             progress, 
@@ -233,9 +248,22 @@ exports.updateGoal = async (req, res) => {
         };
         
         // If goal is being completed, add completedAt date
-        if (isCompleted && !completed) {
+        if (isCompleted) {
             updates.completedAt = new Date();
+            console.log('Goal is complete, setting completedAt:', updates.completedAt);
+        } else {
+            // If the goal is being marked as incomplete, remove completedAt
+            updates.completedAt = null;
         }
+        
+        // Remove undefined values from the updates object
+        Object.keys(updates).forEach(key => {
+            if (updates[key] === undefined) {
+                delete updates[key];
+            }
+        });
+        
+        console.log('Final updates to apply:', updates);
         
         const goal = await Goal.findOneAndUpdate(
             { _id: req.params.id, user: req.user.id },
@@ -250,8 +278,16 @@ exports.updateGoal = async (req, res) => {
             });
         }
 
-        // If goal is newly completed, create a notification
-        if (goal.completed && !completed) {
+        console.log('Updated goal result:', {
+            id: goal._id,
+            completed: goal.completed,
+            completedAt: goal.completedAt,
+            progress: goal.progress,
+            targetAmount: goal.targetAmount
+        });
+
+        // If goal is now completed, create a notification
+        if (goal.completed) {
             await createNotification({
                 recipient: req.user.id,
                 type: 'goal_completed',
@@ -265,6 +301,7 @@ exports.updateGoal = async (req, res) => {
             alert: goal.completed ? "Congratulations! Goal completed! 🎉" : "Goal updated"
         });
     } catch (err) {
+        console.error('Error updating goal:', err);
         res.status(500).json({ 
             message: "Error updating goal", 
             error: err.message,
