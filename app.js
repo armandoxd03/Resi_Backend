@@ -31,9 +31,8 @@ mongoose
     serverSelectionTimeoutMS: 60000,  // Increased timeout for Render
     socketTimeoutMS: 90000,
     maxPoolSize: 15,
-    connectTimeoutMS: 60000,
-    keepAlive: true,
-    keepAliveInitialDelay: 300000 // 5 minutes
+    connectTimeoutMS: 60000
+    // Removed unsupported keepAlive options
   })
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => {
