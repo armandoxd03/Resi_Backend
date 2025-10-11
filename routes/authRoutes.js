@@ -5,6 +5,7 @@ const upload = require('../middleware/upload');
 const { registerValidation } = require('../middleware/validate');
 const auth = require('../middleware/auth');
 const { loginLimiter } = require('../middleware/rateLimit');
+const tokenCacheControl = require('../middleware/tokenCacheControl');
 
 // Registration (no rate limit)
 router.post('/register',
@@ -21,7 +22,7 @@ router.post('/register',
 router.post('/login', loginLimiter, authController.login);
 
 // Token verification (no rate limit)
-router.get('/verify', auth.verify, authController.verifyToken);
+router.get('/verify', tokenCacheControl, auth.verify, authController.verifyToken);
 
 // Password reset (no rate limit)
 router.post('/reset/request', authController.resetRequest);
@@ -29,7 +30,7 @@ router.post('/reset', authController.resetPassword);
 
 // Email verification (no rate limit)
 router.post('/verify/resend', authController.resendVerification);
-router.get('/verify-email/:token', authController.verifyEmail);
+router.get('/verify-email/:token', tokenCacheControl, authController.verifyEmail);
 
 // Delete unverified
 router.post('/delete-unverified', authController.deleteUnverified);
