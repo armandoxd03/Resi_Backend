@@ -50,7 +50,7 @@ mongoose
 const app = express();
 
 // ✅ CORS (allow React frontend in dev)
-let allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173").split(',').map(origin => origin.trim());
+let allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173").split(',').map(origin => origin.trim());
 
 // Ensure localhost:5173 is always allowed for development
 if (!allowedOrigins.includes('http://localhost:5173')) {
@@ -179,7 +179,7 @@ app.get("/health", async (req, res) => {
       timestamp: new Date(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      corsAllowed: process.env.CLIENT_URL || "http://localhost:5173",
+      corsAllowed: process.env.CORS_ORIGIN || "http://localhost:5173",
     });
   } catch (error) {
     res.status(500).json({
@@ -213,7 +213,7 @@ const server = app.listen(PORT, () => {
   server.headersTimeout = 66000; // slightly higher than keepAliveTimeout
   
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 CORS: Allowing ${process.env.CLIENT_URL || "http://localhost:5173"}`);
+  console.log(`🌍 CORS: Allowing ${process.env.CORS_ORIGIN || "http://localhost:5173"}`);
   console.log("💓 Health check endpoint: /health");
 });
 
