@@ -118,6 +118,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ✅ Serve uploaded images
 app.use("/public", express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Main API routes
 app.use("/api/auth", authRoutes);

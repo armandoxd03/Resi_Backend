@@ -50,47 +50,36 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(req.body.password, 10);
         const verificationToken = crypto.randomBytes(20).toString('hex');
 
-        // Process files based on storage type
+        // Process files - store file paths instead of base64 for better performance
         let profilePicture = '';
         let idFrontImage = '';
         let idBackImage = '';
         
         if (req.files) {
-            // Check if we're using memory storage (buffer available)
-            if (req.files.profilePicture && req.files.profilePicture[0] && req.files.profilePicture[0].buffer) {
-                profilePicture = req.files.profilePicture[0].buffer.toString('base64');
-            } 
-            // If using disk storage, read from file path
-            else if (req.files.profilePicture && req.files.profilePicture[0] && req.files.profilePicture[0].path) {
-                try {
-                    const filePath = req.files.profilePicture[0].path;
-                    profilePicture = fs.readFileSync(filePath, {encoding: 'base64'});
-                } catch (err) {
-                    console.error('Error reading profile picture:', err);
+            // Store relative file paths for disk storage
+            if (req.files.profilePicture && req.files.profilePicture[0]) {
+                if (req.files.profilePicture[0].path) {
+                    // Extract relative path from uploads directory
+                    profilePicture = req.files.profilePicture[0].path.replace(/\\/g, '/');
+                } else if (req.files.profilePicture[0].buffer) {
+                    // For memory storage (e.g., Render), convert to base64 as fallback
+                    profilePicture = `data:${req.files.profilePicture[0].mimetype};base64,${req.files.profilePicture[0].buffer.toString('base64')}`;
                 }
             }
 
-            if (req.files.idFrontImage && req.files.idFrontImage[0] && req.files.idFrontImage[0].buffer) {
-                idFrontImage = req.files.idFrontImage[0].buffer.toString('base64');
-            }
-            else if (req.files.idFrontImage && req.files.idFrontImage[0] && req.files.idFrontImage[0].path) {
-                try {
-                    const filePath = req.files.idFrontImage[0].path;
-                    idFrontImage = fs.readFileSync(filePath, {encoding: 'base64'});
-                } catch (err) {
-                    console.error('Error reading ID front image:', err);
+            if (req.files.idFrontImage && req.files.idFrontImage[0]) {
+                if (req.files.idFrontImage[0].path) {
+                    idFrontImage = req.files.idFrontImage[0].path.replace(/\\/g, '/');
+                } else if (req.files.idFrontImage[0].buffer) {
+                    idFrontImage = `data:${req.files.idFrontImage[0].mimetype};base64,${req.files.idFrontImage[0].buffer.toString('base64')}`;
                 }
             }
 
-            if (req.files.idBackImage && req.files.idBackImage[0] && req.files.idBackImage[0].buffer) {
-                idBackImage = req.files.idBackImage[0].buffer.toString('base64');
-            }
-            else if (req.files.idBackImage && req.files.idBackImage[0] && req.files.idBackImage[0].path) {
-                try {
-                    const filePath = req.files.idBackImage[0].path;
-                    idBackImage = fs.readFileSync(filePath, {encoding: 'base64'});
-                } catch (err) {
-                    console.error('Error reading ID back image:', err);
+            if (req.files.idBackImage && req.files.idBackImage[0]) {
+                if (req.files.idBackImage[0].path) {
+                    idBackImage = req.files.idBackImage[0].path.replace(/\\/g, '/');
+                } else if (req.files.idBackImage[0].buffer) {
+                    idBackImage = `data:${req.files.idBackImage[0].mimetype};base64,${req.files.idBackImage[0].buffer.toString('base64')}`;
                 }
             }
         }

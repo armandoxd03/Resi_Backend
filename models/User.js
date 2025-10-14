@@ -78,7 +78,7 @@ userSchema.pre('countDocuments', function() {
 });
 
 // Add indexes for better query performance
-userSchema.index({ email: 1 }); // For login and email lookups
+// Note: email index is already created by unique: true in schema
 userSchema.index({ isDeleted: 1 }); // For soft delete filtering
 userSchema.index({ userType: 1 }); // For filtering by user type
 userSchema.index({ isVerified: 1 }); // For filtering verified users
