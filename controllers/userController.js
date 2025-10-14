@@ -48,28 +48,28 @@ exports.getProfile = async (req, res) => {
 // ✅ EDIT PROFILE (Full Version)
 exports.editProfile = async (req, res) => {
   try {
-    console.log('=== PROFILE UPDATE START ===');
-    console.log('User ID:', req.user.id);
-    console.log('Request method:', req.method);
-    console.log('Content-Type:', req.headers['content-type']);
-    console.log('Authorization header present:', !!req.headers.authorization);
-
     const isMultipart = req.headers['content-type']?.includes('multipart/form-data');
-    console.log('Is multipart form data:', isMultipart);
-
     let updates = {};
 
     // Handle multipart (image upload)
     if (isMultipart && req.file) {
-      console.log('Processing file upload');
-      console.log('File details:', {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Processing file upload');
+        console.log('File details:', {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+        });
+      }
 
-      const base64Image = req.file.buffer.toString('base64');
-      updates.profilePicture = base64Image;
+      // Store file path instead of base64
+      if (req.file.path) {
+        // Disk storage - store relative path
+        updates.profilePicture = req.file.path.replace(/\\/g, '/');
+      } else if (req.file.buffer) {
+        // Memory storage (e.g., Render) - fallback to base64 with data URI
+        updates.profilePicture = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      }
 
       if (req.body) {
         Object.keys(req.body).forEach(key => {
@@ -80,7 +80,9 @@ exports.editProfile = async (req, res) => {
       }
     } else {
       updates = { ...req.body };
-      console.log('Regular JSON updates:', updates);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Regular JSON updates:', updates);
+      }
     }
 
     console.log('Final updates to apply:', updates);
@@ -111,7 +113,9 @@ exports.editProfile = async (req, res) => {
             .map(skill => skill.trim())
             .filter(skill => skill);
         } catch (error) {
-          console.error('Error processing skills:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error processing skills:', error);
+          }
           delete updates.skills;
         }
       } else if (Array.isArray(updates.skills)) {
@@ -145,8 +149,6 @@ exports.editProfile = async (req, res) => {
       });
     }
 
-    console.log('Profile updated successfully');
-
     // ✅ Track changes
     const changes = {};
     Object.keys(updates).forEach(key => {
@@ -178,7 +180,9 @@ exports.editProfile = async (req, res) => {
           },
         });
       } catch (logError) {
-        console.error('Error creating notification/activity log:', logError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error creating notification/activity log:', logError);
+        }
       }
     }
 
@@ -189,7 +193,9 @@ exports.editProfile = async (req, res) => {
       alert: "Profile updated successfully",
     });
   } catch (err) {
-    console.error('Profile update error:', err);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Profile update error:', err);
+    }
 
     res.status(500).json({
       success: false,
