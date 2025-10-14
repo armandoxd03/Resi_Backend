@@ -10,6 +10,7 @@ router.get('/my-matches', auth.verify, jobController.getMyMatches);
 router.get('/my-jobs', auth.verify, jobController.getMyJobs);
 router.get('/my-applications', auth.verify, jobController.getMyApplications);
 router.get('/my-applications-received', auth.verify, jobController.getMyApplicationsReceived);
+router.get('/my-invitations', auth.verify, jobController.getMyInvitations);
 router.get('/search', jobController.search);
 router.get('/popular', jobController.getPopularJobs);
 router.get('/:id', jobController.getJob);  // Individual job details
@@ -18,6 +19,8 @@ router.delete('/:id/cancel-application', auth.verify, jobController.cancelApplic
 router.post('/:id/assign', auth.verify, jobController.assignWorker);
 router.post('/:id/reject', auth.verify, jobController.rejectApplication);
 router.post('/:id/invite', auth.verify, jobController.inviteWorker);
+router.post('/:id/accept-invitation', auth.verify, jobController.acceptInvitation);
+router.post('/:id/decline-invitation', auth.verify, jobController.declineInvitation);
 router.put('/:jobId/applicants/:userId', auth.verify, jobController.updateApplicantStatus);
 router.put('/:id/close', auth.verify, jobController.closeJob);
 router.put('/:id/complete', auth.verify, jobController.completeJob);

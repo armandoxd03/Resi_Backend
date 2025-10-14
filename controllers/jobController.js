@@ -1410,3 +1410,143 @@ exports.inviteWorker = async (req, res) => {
         });
     }
 };
+
+// GET /api/jobs/my-invitations → Get job invitations for the logged-in user
+exports.getMyInvitations = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Find all job_invitation notifications for this user
+        const Notification = mongoose.model('Notification');
+        const invitations = await Notification.find({
+            recipient: userId,
+            type: 'job_invitation'
+        })
+        .populate('relatedJob')
+        .sort({ createdAt: -1 });
+
+        // Filter out invitations where the job no longer exists or is closed
+        const validInvitations = invitations.filter(inv => 
+            inv.relatedJob && 
+            inv.relatedJob.isOpen && 
+            !inv.relatedJob.isDeleted
+        );
+
+        res.status(200).json({
+            success: true,
+            data: validInvitations
+        });
+    } catch (err) {
+        console.error('Error fetching invitations:', err);
+        res.status(500).json({
+            message: "Error fetching invitations",
+            error: err.message
+        });
+    }
+};
+
+// POST /api/jobs/:id/accept-invitation → Accept a job invitation
+exports.acceptInvitation = async (req, res) => {
+    try {
+        const { id } = req.params; // job ID
+        const userId = req.user.id;
+
+        const job = await Job.findById(id);
+        if (!job) {
+            return res.status(404).json({
+                message: "Job not found",
+                alert: "This job is no longer available"
+            });
+        }
+
+        if (!job.isOpen) {
+            return res.status(400).json({
+                message: "Job is closed",
+                alert: "This job is no longer accepting applications"
+            });
+        }
+
+        // Check if already applied
+        const alreadyApplied = job.applicants.some(
+            app => app.user.toString() === userId
+        );
+
+        if (alreadyApplied) {
+            return res.status(400).json({
+                message: "Already applied",
+                alert: "You have already applied to this job"
+            });
+        }
+
+        // Add user to applicants with 'accepted' status since they're accepting an invitation
+        job.applicants.push({
+            user: userId,
+            status: 'pending' // Still needs employer to review
+        });
+
+        await job.save();
+
+        // Mark the invitation notification as read
+        const Notification = mongoose.model('Notification');
+        await Notification.updateOne(
+            {
+                recipient: userId,
+                type: 'job_invitation',
+                relatedJob: id
+            },
+            { isRead: true }
+        );
+
+        // Create notification for employer
+        await createNotification({
+            recipient: job.postedBy,
+            type: 'job_application',
+            message: `${req.user.firstName || 'A user'} accepted your job invitation and applied for "${job.title}"`,
+            relatedJob: job._id
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Invitation accepted",
+            alert: "You've successfully applied to this job!"
+        });
+    } catch (err) {
+        console.error('Error accepting invitation:', err);
+        res.status(500).json({
+            message: "Error accepting invitation",
+            error: err.message,
+            alert: "Failed to accept invitation"
+        });
+    }
+};
+
+// POST /api/jobs/:id/decline-invitation → Decline a job invitation
+exports.declineInvitation = async (req, res) => {
+    try {
+        const { id } = req.params; // job ID
+        const userId = req.user.id;
+
+        // Mark the invitation notification as read
+        const Notification = mongoose.model('Notification');
+        await Notification.updateOne(
+            {
+                recipient: userId,
+                type: 'job_invitation',
+                relatedJob: id
+            },
+            { isRead: true }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Invitation declined",
+            alert: "Invitation declined successfully"
+        });
+    } catch (err) {
+        console.error('Error declining invitation:', err);
+        res.status(500).json({
+            message: "Error declining invitation",
+            error: err.message
+        });
+    }
+};

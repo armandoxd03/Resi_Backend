@@ -8,18 +8,24 @@ const { createNotification } = require('../utils/notificationHelper');
  */
 exports.sendMessage = async (req, res) => {
   try {
-    const { recipientId, subject, content, relatedJobId, parentMessageId } = req.body;
+    const { recipientId, recipientEmail, subject, content, relatedJobId, parentMessageId } = req.body;
 
-    if (!recipientId || !subject || !content) {
+    if ((!recipientId && !recipientEmail) || !subject || !content) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields',
-        alert: 'Please provide recipient, subject, and message content'
+        alert: 'Please provide recipient (ID or email), subject, and message content'
       });
     }
 
-    // Verify recipient exists
-    const recipient = await User.findById(recipientId);
+    // Find recipient by ID or email
+    let recipient;
+    if (recipientId) {
+      recipient = await User.findById(recipientId);
+    } else if (recipientEmail) {
+      recipient = await User.findOne({ email: recipientEmail });
+    }
+
     if (!recipient) {
       return res.status(404).json({
         success: false,
@@ -28,10 +34,13 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
+    // Use the found recipient's ID
+    const finalRecipientId = recipient._id;
+
     // Create message
     const message = new Message({
       sender: req.user.id,
-      recipient: recipientId,
+      recipient: finalRecipientId,
       subject,
       content,
       relatedJob: relatedJobId || null,
@@ -45,7 +54,7 @@ exports.sendMessage = async (req, res) => {
 
     // Create notification for recipient
     await createNotification({
-      recipient: recipientId,
+      recipient: finalRecipientId,
       type: 'new_message',
       message: `New message from ${req.user.firstName || 'User'}: ${subject}`,
       relatedId: message._id
