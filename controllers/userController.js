@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const { createNotification } = require('../utils/notificationHelper');
 const Activity = require('../models/Activity');
+const bcrypt = require('bcrypt');
 
 // ✅ Helper function to create activity log
 const createActivityLog = async (activityData) => {
@@ -360,7 +361,7 @@ exports.changePassword = async (req, res) => {
     }
 
     // Verify current password
-    const isMatch = await user.comparePassword(currentPassword);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
     
     if (!isMatch) {
       return res.status(401).json({
@@ -370,8 +371,9 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Update password (pre-save hook will hash it)
-    user.password = newPassword;
+    // Hash and update password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
     await user.save();
 
     res.status(200).json({
