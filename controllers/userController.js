@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const { createNotification } = require('../utils/notificationHelper');
 const Activity = require('../models/Activity');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 // ✅ Helper function to create activity log
 const createActivityLog = async (activityData) => {
