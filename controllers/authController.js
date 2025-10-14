@@ -60,7 +60,9 @@ exports.register = async (req, res) => {
             if (req.files.profilePicture && req.files.profilePicture[0]) {
                 if (req.files.profilePicture[0].path) {
                     // Extract relative path from uploads directory
-                    profilePicture = req.files.profilePicture[0].path.replace(/\\/g, '/');
+                    const fullPath = req.files.profilePicture[0].path.replace(/\\/g, '/');
+                    const relativePath = fullPath.split('/uploads/')[1];
+                    profilePicture = relativePath ? `uploads/${relativePath}` : fullPath;
                 } else if (req.files.profilePicture[0].buffer) {
                     // For memory storage (e.g., Render), convert to base64 as fallback
                     profilePicture = `data:${req.files.profilePicture[0].mimetype};base64,${req.files.profilePicture[0].buffer.toString('base64')}`;
@@ -69,7 +71,9 @@ exports.register = async (req, res) => {
 
             if (req.files.idFrontImage && req.files.idFrontImage[0]) {
                 if (req.files.idFrontImage[0].path) {
-                    idFrontImage = req.files.idFrontImage[0].path.replace(/\\/g, '/');
+                    const fullPath = req.files.idFrontImage[0].path.replace(/\\/g, '/');
+                    const relativePath = fullPath.split('/uploads/')[1];
+                    idFrontImage = relativePath ? `uploads/${relativePath}` : fullPath;
                 } else if (req.files.idFrontImage[0].buffer) {
                     idFrontImage = `data:${req.files.idFrontImage[0].mimetype};base64,${req.files.idFrontImage[0].buffer.toString('base64')}`;
                 }
@@ -77,7 +81,9 @@ exports.register = async (req, res) => {
 
             if (req.files.idBackImage && req.files.idBackImage[0]) {
                 if (req.files.idBackImage[0].path) {
-                    idBackImage = req.files.idBackImage[0].path.replace(/\\/g, '/');
+                    const fullPath = req.files.idBackImage[0].path.replace(/\\/g, '/');
+                    const relativePath = fullPath.split('/uploads/')[1];
+                    idBackImage = relativePath ? `uploads/${relativePath}` : fullPath;
                 } else if (req.files.idBackImage[0].buffer) {
                     idBackImage = `data:${req.files.idBackImage[0].mimetype};base64,${req.files.idBackImage[0].buffer.toString('base64')}`;
                 }

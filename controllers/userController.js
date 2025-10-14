@@ -64,8 +64,9 @@ exports.editProfile = async (req, res) => {
 
       // Store file path instead of base64
       if (req.file.path) {
-        // Disk storage - store relative path
-        updates.profilePicture = req.file.path.replace(/\\/g, '/');
+        // Disk storage - extract relative path from uploads directory
+        const relativePath = req.file.path.replace(/\\/g, '/').split('/uploads/')[1];
+        updates.profilePicture = relativePath ? `uploads/${relativePath}` : req.file.path.replace(/\\/g, '/');
       } else if (req.file.buffer) {
         // Memory storage (e.g., Render) - fallback to base64 with data URI
         updates.profilePicture = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -333,3 +334,60 @@ exports.getWorkers = async (req, res) => {
     });
   }
 };
+
+// Change Password
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide both current and new password",
+        alert: "Both passwords are required"
+      });
+    }
+
+    // Find user with password field
+    const user = await User.findById(req.user.id).select('+password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+        alert: "User not found"
+      });
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+        alert: "Current password is incorrect"
+      });
+    }
+
+    // Update password (pre-save hook will hash it)
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+      alert: "Password changed successfully"
+    });
+
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({
+      success: false,
+      message: "Error changing password",
+      error: err.message,
+      alert: "Failed to change password"
+    });
+  }
+};
+

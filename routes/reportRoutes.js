@@ -4,7 +4,10 @@ const reportController = require('../controllers/reportController');
 const auth = require('../middleware/auth');
 
 // User reports another user
-router.post('/', auth.verify, reportController.reportUser);
+router.post('/user', auth.verify, reportController.reportUser);
+
+// User reports a job
+router.post('/job', auth.verify, reportController.reportJob);
 
 // Admin fetches all reports
 router.get('/', auth.verify, auth.verifyAdmin, reportController.getReports);

@@ -14,6 +14,9 @@ router.put('/me',
     userController.editProfile
 );
 
+// Change password
+router.put('/me/password', auth.verify, userController.changePassword);
+
 // Get workers (requires authentication)
 router.get('/workers', auth.verify, userController.getWorkers);
 

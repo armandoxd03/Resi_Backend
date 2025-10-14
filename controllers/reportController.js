@@ -1,5 +1,6 @@
 const Report = require('../models/Report');
 const User = require('../models/User');
+const Job = require('../models/Job');
 const { createNotification } = require('../utils/notificationHelper');
 
 /**
@@ -73,6 +74,80 @@ exports.reportUser = async (req, res) => {
 };
 
 /**
+ * REPORT JOB
+ * Allows a logged-in user to report a job posting.
+ */
+exports.reportJob = async (req, res) => {
+    try {
+        const { reportedJobId, reason } = req.body;
+
+        if (!reportedJobId || !reason) {
+            return res.status(400).json({
+                message: "Missing required fields",
+                required: ["reportedJobId", "reason"],
+                alert: "Please fill all required fields"
+            });
+        }
+
+        // Verify the job exists
+        const job = await Job.findById(reportedJobId);
+        if (!job) {
+            return res.status(404).json({
+                message: "Job not found",
+                alert: "The job you're trying to report doesn't exist"
+            });
+        }
+
+        // Check for duplicate pending reports
+        const existingReport = await Report.findOne({
+            reporter: req.user.id,
+            reportedJob: reportedJobId,
+            status: 'pending'
+        });
+
+        if (existingReport) {
+            return res.status(400).json({
+                message: "Already reported",
+                alert: "You already have a pending report for this job"
+            });
+        }
+
+        const report = new Report({ 
+            reporter: req.user.id, 
+            reportedJob: reportedJobId, 
+            reason 
+        });
+        await report.save();
+
+        // Notify all admins
+        const admins = await User.find({ userType: 'admin' });
+        for (const admin of admins) {
+            await createNotification({
+                recipient: admin._id,
+                type: 'job_reported',
+                message: `New report against job "${job.title}": ${reason}`
+            });
+        }
+
+        // Populate reporter and reportedJob for response
+        await report.populate('reporter', 'firstName lastName email')
+                    .populate('reportedJob', 'title description postedBy');
+
+        res.status(201).json({
+            message: "Report submitted successfully",
+            report,
+            alert: "Report submitted to administrators"
+        });
+    } catch (err) {
+        res.status(500).json({ 
+            message: "Error reporting job", 
+            error: err.message,
+            alert: "Failed to submit report"
+        });
+    }
+};
+
+/**
  * GET REPORTS
  * Admin can fetch all reports (optionally filter by status).
  */
@@ -88,6 +163,7 @@ exports.getReports = async (req, res) => {
         const reports = await Report.find(query)
             .populate('reporter', 'firstName lastName email')
             .populate('reportedUser', 'firstName lastName email')
+            .populate('reportedJob', 'title description postedBy')
             .sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -126,6 +202,7 @@ exports.updateReportStatus = async (req, res) => {
             { new: true }
         )
         .populate('reportedUser', 'firstName lastName email')
+        .populate('reportedJob', 'title description postedBy')
         .populate('reporter', 'firstName lastName email');
 
         if (!report) {
@@ -137,9 +214,14 @@ exports.updateReportStatus = async (req, res) => {
 
         // Notify reporter if resolved
         if (status === 'resolved') {
-            const reportedName = report.reportedUser 
-                ? `${report.reportedUser.firstName} ${report.reportedUser.lastName}`
-                : "the user";
+            let reportedName;
+            if (report.reportedUser) {
+                reportedName = `${report.reportedUser.firstName} ${report.reportedUser.lastName}`;
+            } else if (report.reportedJob) {
+                reportedName = `job "${report.reportedJob.title}"`;
+            } else {
+                reportedName = "the reported item";
+            }
 
             await createNotification({
                 recipient: report.reporter._id,
