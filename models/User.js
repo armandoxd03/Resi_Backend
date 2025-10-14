@@ -77,4 +77,15 @@ userSchema.pre('countDocuments', function() {
     }
 });
 
+// Add indexes for better query performance
+userSchema.index({ email: 1 }); // For login and email lookups
+userSchema.index({ isDeleted: 1 }); // For soft delete filtering
+userSchema.index({ userType: 1 }); // For filtering by user type
+userSchema.index({ isVerified: 1 }); // For filtering verified users
+userSchema.index({ barangay: 1 }); // For location-based searches
+userSchema.index({ skills: 1 }); // For skill-based searches
+userSchema.index({ createdAt: -1 }); // For sorting by date
+userSchema.index({ isDeleted: 1, userType: 1 }); // Compound index for common filters
+userSchema.index({ isDeleted: 1, isVerified: 1 }); // Compound index for verification checks
+
 module.exports = mongoose.model('User', userSchema);
