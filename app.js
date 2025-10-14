@@ -48,6 +48,8 @@ mongoose
 
 // App Initialization
 const app = express();
+// Fix: Trust proxy for correct rate limiting behind Render/other proxies
+app.set('trust proxy', 1);
 
 // ✅ CORS (allow React frontend in dev)
 let allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173").split(',').map(origin => origin.trim());
