@@ -67,24 +67,42 @@ exports.searchUsers = async (req, res) => {
     }
 };
 
-// Delete user
+// Delete user (soft delete)
 exports.deleteUser = async (req, res) => {
     try {
-        const user = await User.findByIdAndDelete(req.params.id);
+        const user = await User.findById(req.params.id);
         if (!user) {
             return res.status(404).json({ message: "User not found", alert: "No user found with that ID" });
         }
 
+        // Soft delete user
+        user.isDeleted = true;
+        user.deletedAt = new Date();
+        await user.save();
+
         await createNotification({
             recipient: req.user.id,
             type: 'admin_message',
-            message: `User ${user.email} has been deleted by ${req.user.email}`
+            message: `User ${user.email} has been soft-deleted by ${req.user.email}`
+        });
+
+        // Log the action
+        await createActivityLog({
+            userId: req.user.id,
+            userName: `${req.user.firstName} ${req.user.lastName}`,
+            type: 'user_soft_delete',
+            description: `Admin soft-deleted user: ${user.email}`,
+            metadata: {
+                deletedUserId: user._id,
+                deletedUserEmail: user.email,
+                deletedUserName: `${user.firstName} ${user.lastName}`
+            }
         });
 
         res.status(200).json({
             message: "User deleted successfully",
             deletedUser: { id: user._id, email: user.email, name: `${user.firstName} ${user.lastName}` },
-            alert: "User account permanently deleted"
+            alert: "User account has been deactivated"
         });
     } catch (err) {
         res.status(500).json({ message: "Error deleting user", error: err.message, alert: "Failed to delete user account" });
@@ -243,13 +261,28 @@ exports.deleteJob = async (req, res) => {
             // Continue with deletion even if notification fails
         }
 
-        // Delete the job
-        await Job.findByIdAndDelete(req.params.id);
+        // Soft delete the job
+        job.isDeleted = true;
+        job.deletedAt = new Date();
+        await job.save();
+        
+        // Log the action
+        await createActivityLog({
+            userId: req.user.id,
+            userName: `${req.user.firstName} ${req.user.lastName}`,
+            type: 'job_soft_delete_admin',
+            description: `Admin soft-deleted job: ${job.title}`,
+            metadata: {
+                jobId: job._id,
+                jobTitle: job.title,
+                jobPostedBy: job.postedBy
+            }
+        });
 
         res.status(200).json({
             message: "Job deleted successfully",
             deletedJob: { id: job._id, title: job.title, postedBy: job.postedBy },
-            alert: "Job permanently deleted"
+            alert: "Job has been removed"
         });
     } catch (err) {
         console.error('Admin job deletion error:', err);

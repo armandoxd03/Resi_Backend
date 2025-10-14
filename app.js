@@ -20,6 +20,7 @@ const passwordResetTokenRoutes = require("./routes/passwordResetRoutes");
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const exportRoutes = require('./routes/exportRoutes');
+const softDeleteRoutes = require('./routes/softDeleteRoutes');
 const { createNotification } = require('./utils/notificationHelper');
 
 const PORT = process.env.PORT || 5000;
@@ -130,6 +131,7 @@ app.use("/api/reset-tokens", passwordResetTokenRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/admin/soft-delete", softDeleteRoutes);
 
 // Test notification endpoint for debugging
 app.post("/api/test-notification", async (req, res) => {

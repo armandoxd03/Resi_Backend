@@ -48,7 +48,33 @@ const userSchema = new mongoose.Schema({
     }],
 
     // Metadata Information
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    
+    // Soft Delete Information
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null }
+});
+
+// Add a global query middleware to filter out soft-deleted users by default
+userSchema.pre('find', function() {
+    // Only include non-deleted users unless explicitly asked for deleted ones
+    if (!this.getQuery().includeSoftDeleted) {
+        this.where({ isDeleted: false });
+    }
+});
+
+userSchema.pre('findOne', function() {
+    // Only include non-deleted users unless explicitly asked for deleted ones
+    if (!this.getQuery().includeSoftDeleted) {
+        this.where({ isDeleted: false });
+    }
+});
+
+userSchema.pre('countDocuments', function() {
+    // Only count non-deleted users unless explicitly asked for deleted ones
+    if (!this.getQuery().includeSoftDeleted) {
+        this.where({ isDeleted: false });
+    }
 });
 
 module.exports = mongoose.model('User', userSchema);

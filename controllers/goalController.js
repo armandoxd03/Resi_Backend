@@ -401,8 +401,11 @@ exports.deleteGoal = async (req, res) => {
         // Check if this is the active goal
         const wasActive = goal.isActive;
         
-        // Delete the goal
-        await goal.deleteOne();
+        // Soft delete the goal instead of hard delete
+        goal.isDeleted = true;
+        goal.deletedAt = new Date();
+        goal.isActive = false; // Deactivate if it was active
+        await goal.save();
         
         // If the deleted goal was active, activate the next goal
         if (wasActive) {

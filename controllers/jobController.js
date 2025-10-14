@@ -974,8 +974,25 @@ exports.deleteJob = async (req, res) => {
             });
         }
 
-        await Job.findByIdAndDelete(req.params.id);
-        console.log('Job successfully deleted:', req.params.id);
+        // Soft delete - update job as deleted instead of removing
+        await Job.findByIdAndUpdate(req.params.id, { 
+            isDeleted: true,
+            deletedAt: new Date()
+        });
+        console.log('Job successfully soft-deleted:', req.params.id);
+
+        // Create activity log for the deletion
+        await createActivityLog({
+            userId: req.user.id,
+            userName: `${req.user.firstName} ${req.user.lastName}`,
+            type: 'job_delete',
+            description: `User deleted job: ${job.title}`,
+            metadata: {
+                jobId: job._id,
+                title: job.title,
+                isSoftDelete: true
+            }
+        });
 
         res.status(200).json({ 
             message: "Job deleted successfully",

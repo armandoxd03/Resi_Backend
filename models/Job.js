@@ -15,7 +15,33 @@ const jobSchema = new mongoose.Schema({
         status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
     }],
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // If accepted
-    completed: { type: Boolean, default: false }
+    completed: { type: Boolean, default: false },
+    
+    // Soft Delete Information
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null }
+});
+
+// Add a global query middleware to filter out soft-deleted jobs by default
+jobSchema.pre('find', function() {
+    // Only include non-deleted jobs unless explicitly asked for deleted ones
+    if (!this.getQuery().includeSoftDeleted) {
+        this.where({ isDeleted: false });
+    }
+});
+
+jobSchema.pre('findOne', function() {
+    // Only include non-deleted jobs unless explicitly asked for deleted ones
+    if (!this.getQuery().includeSoftDeleted) {
+        this.where({ isDeleted: false });
+    }
+});
+
+jobSchema.pre('countDocuments', function() {
+    // Only count non-deleted jobs unless explicitly asked for deleted ones
+    if (!this.getQuery().includeSoftDeleted) {
+        this.where({ isDeleted: false });
+    }
 });
 
 module.exports = mongoose.model('Job', jobSchema);
