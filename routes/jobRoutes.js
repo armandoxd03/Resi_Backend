@@ -13,7 +13,7 @@ router.get('/my-applications-received', auth.verify, jobController.getMyApplicat
 router.get('/my-invitations', auth.verify, jobController.getMyInvitations);
 router.get('/search', jobController.search);
 router.get('/popular', jobController.getPopularJobs);
-router.get('/:id', jobController.getJob);  // Individual job details
+// Specific routes with parameters must come after static routes
 router.post('/:id/apply', auth.verify, jobController.applyJob);
 router.delete('/:id/cancel-application', auth.verify, jobController.cancelApplication);
 router.post('/:id/assign', auth.verify, jobController.assignWorker);
@@ -26,5 +26,7 @@ router.put('/:id/close', auth.verify, jobController.closeJob);
 router.put('/:id/complete', auth.verify, jobController.completeJob);
 router.put('/:id', auth.verify, jobController.editJob);
 router.delete('/:id', auth.verify, jobController.deleteJob);
+// Generic /:id route MUST be last to avoid catching specific routes
+router.get('/:id', jobController.getJob);  // Individual job details
 
 module.exports = router;
