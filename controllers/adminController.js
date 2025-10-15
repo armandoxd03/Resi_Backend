@@ -3,8 +3,21 @@ const User = require('../models/User');
 const Job = require('../models/Job');
 const Rating = require('../models/Rating');
 const Report = require('../models/Report');
+const Activity = require('../models/Activity');
 const { generateUserReport } = require('../utils/pdfGenerator');
 const { createNotification } = require('../utils/notificationHelper');
+
+// Create activity log helper
+const createActivityLog = async (activityData) => {
+  try {
+    const activity = new Activity(activityData);
+    await activity.save();
+    return activity;
+  } catch (error) {
+    console.error('Error creating activity log:', error);
+    return null;
+  }
+};
 
 // Dashboard summary
 exports.getDashboard = async (req, res) => {
