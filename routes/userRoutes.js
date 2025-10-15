@@ -23,6 +23,9 @@ router.get('/workers', auth.verify, userController.getWorkers);
 // Search users (requires authentication) - for chat and messaging
 router.get('/search', auth.verify, userController.searchUsers);
 
+// Get support contact for help/support chat
+router.get('/support-contact', auth.verify, userController.getSupportContact);
+
 // Goals (Legacy)
 router.post('/goals', auth.verify, userController.setGoal);
 

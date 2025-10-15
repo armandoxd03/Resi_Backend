@@ -433,3 +433,45 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+// Get Support Contact (Admin user for support chat)
+exports.getSupportContact = async (req, res) => {
+  try {
+    const Admin = require('../models/Admin');
+    
+    // Find the first admin to use as support contact
+    const admin = await Admin.findOne()
+      .select('username email')
+      .sort({ createdAt: 1 }); // Get the first created admin
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "No support contact available",
+        alert: "Support contact not found"
+      });
+    }
+
+    // Return admin info formatted like a user for chat
+    res.status(200).json({
+      success: true,
+      supportContact: {
+        _id: admin._id,
+        firstName: 'ResiLinked',
+        lastName: 'Support',
+        email: admin.email,
+        userType: 'admin',
+        profilePicture: null
+      },
+      alert: "Support contact loaded"
+    });
+  } catch (err) {
+    console.error('Get support contact error:', err);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching support contact",
+      error: err.message,
+      alert: "Failed to load support contact"
+    });
+  }
+};
+
