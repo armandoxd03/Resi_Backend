@@ -29,7 +29,9 @@ exports.createSupportTicket = async (req, res) => {
             priority: priority || 'medium' // Default to medium if not provided
         });
 
+        console.log('Creating support ticket:', ticket);
         await ticket.save();
+        console.log('Support ticket saved successfully:', ticket._id);
 
         // Notify all admins about new support ticket
         const admins = await Admin.find();
@@ -73,10 +75,13 @@ exports.getAllSupportTickets = async (req, res) => {
             query.priority = priority;
         }
 
+        console.log('Fetching support tickets with query:', query);
         const tickets = await SupportTicket.find(query)
             .populate('user', 'firstName lastName email')
             .populate('resolvedBy', 'username')
             .sort({ createdAt: -1 });
+
+        console.log(`Found ${tickets.length} support tickets`);
 
         res.status(200).json({
             success: true,
