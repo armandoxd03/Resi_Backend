@@ -52,13 +52,8 @@ exports.sendMessage = async (req, res) => {
     // Populate sender info
     await message.populate('sender', 'firstName lastName profilePicture');
 
-    // Create notification for recipient
-    await createNotification({
-      recipient: finalRecipientId,
-      type: 'new_message',
-      message: `New message from ${req.user.firstName || 'User'}: ${subject}`,
-      relatedId: message._id
-    });
+    // No notification for chat messages (to avoid spam)
+    // Users will see new messages in real-time through the chat interface
 
     res.status(201).json({
       success: true,
