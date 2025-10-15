@@ -25,7 +25,11 @@ const notificationSchema = new mongoose.Schema({
             'application_rejected',
             'application_update',
             'goal_income_added',
-            'goal_completed_job'
+            'goal_completed_job',
+            'new_message',
+            'message',
+            'job_update',
+            'account_update'
         ],
         required: true
     },
