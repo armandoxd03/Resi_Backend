@@ -8,7 +8,7 @@ const Admin = require('../models/Admin');
  */
 exports.createSupportTicket = async (req, res) => {
     try {
-        const { name, email, subject, message } = req.body;
+        const { name, email, subject, message, priority } = req.body;
 
         if (!name || !email || !subject || !message) {
             return res.status(400).json({
@@ -25,7 +25,8 @@ exports.createSupportTicket = async (req, res) => {
             name,
             email,
             subject,
-            message
+            message,
+            priority: priority || 'medium' // Default to medium if not provided
         });
 
         await ticket.save();
