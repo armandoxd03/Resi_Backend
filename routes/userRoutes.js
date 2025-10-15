@@ -20,6 +20,9 @@ router.put('/me/password', auth.verify, userController.changePassword);
 // Get workers (requires authentication)
 router.get('/workers', auth.verify, userController.getWorkers);
 
+// Search users (requires authentication) - for chat and messaging
+router.get('/search', auth.verify, userController.searchUsers);
+
 // Goals (Legacy)
 router.post('/goals', auth.verify, userController.setGoal);
 

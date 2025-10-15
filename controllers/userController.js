@@ -336,6 +336,46 @@ exports.getWorkers = async (req, res) => {
   }
 };
 
+// ✅ SEARCH USERS (for chat/messaging)
+exports.searchUsers = async (req, res) => {
+  try {
+    const { search, limit = 20 } = req.query;
+
+    if (!search || search.trim().length === 0) {
+      return res.status(200).json({
+        success: true,
+        users: [],
+        alert: "Please enter a search term",
+      });
+    }
+
+    const query = {
+      isVerified: true,
+      $or: [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ],
+    };
+
+    const users = await User.find(query)
+      .select('firstName lastName email userType profilePicture')
+      .limit(parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      users,
+      alert: users.length ? `Found ${users.length} users` : "No users found",
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Error searching users",
+      error: err.message,
+      alert: "Failed to search users",
+    });
+  }
+};
+
 // Change Password
 exports.changePassword = async (req, res) => {
   try {
