@@ -1,17 +1,31 @@
-const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-// Initialize SendGrid with API key
-if (process.env.SENDGRID_API_KEY && 
-    process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
-    !process.env.SENDGRID_API_KEY.includes('your_') &&
-    process.env.SENDGRID_API_KEY.startsWith('SG.')) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log("✅ SendGrid API key configured");
-} else {
-  console.log("⚠️ SendGrid API key not provided or invalid, will try to use Gmail as fallback");
-}
+// Create reusable transporter
+let transporter = null;
+
+const createTransporter = () => {
+  if (!transporter) {
+    console.log('📧 Initializing Nodemailer transporter');
+    console.log(`📧 Email settings: Host=${process.env.EMAIL_HOST || "smtp.gmail.com"}, Port=${process.env.EMAIL_PORT || "587"}, User=${process.env.EMAIL_USER}`);
+    
+    transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.EMAIL_PORT || "587"),
+      secure: process.env.EMAIL_SECURE === "true", // true for 465, false for other ports
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      },
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 60000, // 60 seconds
+      logger: false, // Set to true for debugging
+      debug: false // Set to true for debugging
+    });
+  }
+  return transporter;
+};
 
 /**
  * Sends verification email to new users
@@ -99,61 +113,24 @@ const sendVerificationEmail = async (email, token) => {
       category: ["account", "verification"]
     };
 
-    // Check if SendGrid API key is properly configured (not the default placeholder)
-    if (process.env.SENDGRID_API_KEY && 
-        process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
-        !process.env.SENDGRID_API_KEY.includes('your_') &&
-        process.env.SENDGRID_API_KEY.startsWith('SG.')) {
-      console.log(`📨 Attempting to send via SendGrid`);
-      try {
-        await sgMail.send(emailContent);
-        console.log(`✅ Verification email sent to ${email} via SendGrid`);
-        return true;
-      } catch (sgError) {
-        console.error(`❌ SendGrid error: ${sgError.message}`, sgError);
-        console.log(`⚠️ Falling back to Gmail`);
-        // Fall through to Gmail fallback
-      }
+    // Check if email credentials are configured
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error(`❌ No email configuration available`);
+      throw new Error("Email service not configured - EMAIL_USER and EMAIL_PASS are required");
     }
     
-    // Try Gmail as fallback or primary if SendGrid isn't configured
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      console.log(`📨 Attempting to send via Gmail SMTP`);
-      console.log(`📧 Gmail settings: Host=${process.env.EMAIL_HOST || "smtp.gmail.com"}, Port=${process.env.EMAIL_PORT || "587"}, Secure=${process.env.EMAIL_SECURE || "false"}`);
-      
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
-        secure: process.env.EMAIL_SECURE === "true",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        // Increase timeout settings
-        connectionTimeout: 30000, // 30 seconds
-        greetingTimeout: 30000,
-        socketTimeout: 60000, // 60 seconds
-        // Debug options
-        logger: true
-      });
-      
-      try {
-        // Verify connection configuration
-        await transporter.verify();
-        console.log('✅ SMTP connection verified');
-        
-        // Send email
-        await transporter.sendMail(emailContent);
-        console.log(`✅ Verification email sent to ${email} via Gmail SMTP`);
-        return true;
-      } catch (gmailError) {
-        console.error(`❌ Gmail SMTP error: ${gmailError.message}`, gmailError);
-        throw gmailError; // Re-throw as we have no more fallbacks
-      }
-    } else {
-      console.error(`❌ No email configuration available`);
-      throw new Error("Email service not configured - neither SendGrid nor Gmail credentials found");
-    }
+    console.log(`📨 Sending verification email via Nodemailer SMTP`);
+    
+    const transporter = createTransporter();
+    
+    // Verify connection configuration
+    await transporter.verify();
+    console.log('✅ SMTP connection verified');
+    
+    // Send email
+    await transporter.sendMail(emailContent);
+    console.log(`✅ Verification email sent to ${email} via SMTP`);
+    return true;
   } catch (error) {
     console.error(`❌ Verification email error: ${error.message}`);
     console.error(error.stack);
@@ -250,61 +227,24 @@ const sendResetEmail = async (to, resetLink) => {
       category: ["account", "password-reset"]
     };
 
-    // Check if SendGrid API key is properly configured (not the default placeholder)
-    if (process.env.SENDGRID_API_KEY && 
-        process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
-        !process.env.SENDGRID_API_KEY.includes('your_') &&
-        process.env.SENDGRID_API_KEY.startsWith('SG.')) {
-      console.log(`📨 Attempting to send via SendGrid`);
-      try {
-        await sgMail.send(emailContent);
-        console.log(`✅ Password reset email sent to ${to} via SendGrid`);
-        return true;
-      } catch (sgError) {
-        console.error(`❌ SendGrid error: ${sgError.message}`, sgError);
-        console.log(`⚠️ Falling back to Gmail`);
-        // Fall through to Gmail fallback
-      }
+    // Check if email credentials are configured
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error(`❌ No email configuration available`);
+      throw new Error("Email service not configured - EMAIL_USER and EMAIL_PASS are required");
     }
     
-    // Try Gmail as fallback or primary if SendGrid isn't configured
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      console.log(`📨 Attempting to send via Gmail SMTP`);
-      console.log(`📧 Gmail settings: Host=${process.env.EMAIL_HOST || "smtp.gmail.com"}, Port=${process.env.EMAIL_PORT || "587"}, Secure=${process.env.EMAIL_SECURE || "false"}`);
-      
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
-        secure: process.env.EMAIL_SECURE === "true",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        // Increase timeout settings
-        connectionTimeout: 30000, // 30 seconds
-        greetingTimeout: 30000,
-        socketTimeout: 60000, // 60 seconds
-        // Debug options
-        logger: true
-      });
-      
-      try {
-        // Verify connection configuration
-        await transporter.verify();
-        console.log('✅ SMTP connection verified');
-        
-        // Send email
-        await transporter.sendMail(emailContent);
-        console.log(`✅ Password reset email sent to ${to} via Gmail SMTP`);
-        return true;
-      } catch (gmailError) {
-        console.error(`❌ Gmail SMTP error: ${gmailError.message}`, gmailError);
-        throw gmailError; // Re-throw as we have no more fallbacks
-      }
-    } else {
-      console.error(`❌ No email configuration available`);
-      throw new Error("Email service not configured - neither SendGrid nor Gmail credentials found");
-    }
+    console.log(`� Sending password reset email via Nodemailer SMTP`);
+    
+    const transporter = createTransporter();
+    
+    // Verify connection configuration
+    await transporter.verify();
+    console.log('✅ SMTP connection verified');
+    
+    // Send email
+    await transporter.sendMail(emailContent);
+    console.log(`✅ Password reset email sent to ${to} via SMTP`);
+    return true;
   } catch (error) {
     console.error(`❌ Password reset email error: ${error.message}`);
     console.error(error.stack);
@@ -314,45 +254,32 @@ const sendResetEmail = async (to, resetLink) => {
 
 // Verify email configuration
 const verifyConnection = async () => {
-  const hasSendGrid = Boolean(process.env.SENDGRID_API_KEY && 
-                             process.env.SENDGRID_API_KEY.startsWith('SG.') &&
-                             process.env.SENDGRID_API_KEY !== 'paste_your_sendgrid_api_key_here' &&
-                             !process.env.SENDGRID_API_KEY.includes('your_'));
-  const hasGmail = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+  const hasEmailConfig = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
   
   console.log(`📧 Email configuration check:`);
-  console.log(`- SendGrid configured: ${hasSendGrid}`);
-  console.log(`- Gmail configured: ${hasGmail}`);
+  console.log(`- Email configured: ${hasEmailConfig}`);
   console.log(`- FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
   console.log(`- EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set'}`);
-  console.log(`- EMAIL_HOST: ${process.env.EMAIL_HOST || 'not set (using default smtp.gmail.com)'}`);
-  console.log(`- EMAIL_PORT: ${process.env.EMAIL_PORT || 'not set (using default 587)'}`);
+  console.log(`- EMAIL_HOST: ${process.env.EMAIL_HOST || 'smtp.gmail.com'}`);
+  console.log(`- EMAIL_PORT: ${process.env.EMAIL_PORT || '587'}`);
+  console.log(`- EMAIL_USER: ${process.env.EMAIL_USER ? '***configured***' : 'not set'}`);
+  console.log(`- EMAIL_PASS: ${process.env.EMAIL_PASS ? '***configured***' : 'not set'}`);
   
-  // Test Gmail connection if configured
-  if (hasGmail) {
+  // Test SMTP connection if configured
+  if (hasEmailConfig) {
     try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
-        secure: process.env.EMAIL_SECURE === "true",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        connectionTimeout: 10000 // 10 seconds for testing
-      });
-      
+      const transporter = createTransporter();
       await transporter.verify();
-      console.log('✅ Gmail SMTP connection verified successfully');
+      console.log('✅ SMTP connection verified successfully');
       return true;
     } catch (error) {
-      console.error('❌ Gmail SMTP connection test failed:', error.message);
-      // Still return true if SendGrid is configured
-      return hasSendGrid;
+      console.error('❌ SMTP connection test failed:', error.message);
+      return false;
     }
   }
   
-  return hasSendGrid || hasGmail;
+  console.warn('⚠️ No email configuration found');
+  return false;
 };
 
 /**

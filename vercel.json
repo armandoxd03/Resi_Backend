@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/public/uploads/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "app.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "MONGODB_URI": "@mongodb_uri",
+    "JWT_SECRET": "@jwt_secret",
+    "EMAIL_USER": "@email_user",
+    "EMAIL_PASS": "@email_pass",
+    "EMAIL_FROM": "ResiLinked <resilinked@gmail.com>",
+    "EMAIL_HOST": "smtp.gmail.com",
+    "EMAIL_PORT": "587",
+    "EMAIL_SECURE": "false",
+    "FRONTEND_URL": "https://resi-frontend.vercel.app",
+    "CLIENT_URL": "https://resi-frontend.vercel.app"
+  },
+  "functions": {
+    "app.js": {
+      "maxDuration": 30,
+      "memory": 1024,
+      "regions": ["sin1"]
+    }
+  }
+}
