@@ -98,9 +98,8 @@ exports.register = async (req, res) => {
         // Try to send verification email but don't block registration if it fails
         try {
             await sendVerificationEmail(user.email, verificationToken);
-            console.log(`✅ Verification email successfully sent to ${user.email}`);
+            // Verification email sent successfully
         } catch (emailError) {
-            console.error(`⚠️ Failed to send verification email to ${user.email}:`, emailError.message);
             // Continue registration process despite email failure
         }
 
@@ -113,9 +112,8 @@ exports.register = async (req, res) => {
                     type: 'admin_message',
                     message: `New user ${user.email} requires verification`
                 });
-                console.log(`✅ Admin notification sent for new user ${user.email}`);
+                // Admin notification sent
             } catch (notificationError) {
-                console.error(`⚠️ Failed to send admin notification:`, notificationError.message);
                 // Continue despite notification failure
             }
 

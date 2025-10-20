@@ -200,9 +200,6 @@ exports.getMyMatches = async (req, res) => {
             });
         }
         
-        console.log(`Finding job matches for user ${user._id} (${user.firstName} ${user.lastName})`);
-        console.log(`User skills: ${user.skills?.join(', ') || 'None'}`);
-        
         if (!user.skills || user.skills.length === 0) {
             return res.status(200).json({
                 jobs: [],
@@ -212,8 +209,6 @@ exports.getMyMatches = async (req, res) => {
         }
         
         const matchingJobs = await findMatchingJobs(user);
-        
-        console.log(`Returning ${matchingJobs.length} job matches to user`);
 
         res.status(200).json({
             jobs: matchingJobs,
@@ -344,20 +339,12 @@ exports.cancelApplication = async (req, res) => {
             });
         }
 
-        // Debug information
-        console.log(`Looking for application for user ID: ${req.user.id}`);
-        console.log(`Job applicants:`, job.applicants.map(a => ({
-            userId: a.user ? a.user.toString() : 'undefined',
-            status: a.status
-        })));
-        
         // First try direct string comparison
         const applicationIndex = job.applicants.findIndex(a => 
             a.user && (a.user.toString() === req.user.id || a.user === req.user.id)
         );
         
         if (applicationIndex === -1) {
-            console.log(`No application found for user ${req.user.id} on job ${req.params.id}`);
             return res.status(400).json({ 
                 message: "No application found",
                 error: "CANCEL_APPLICATION_NOT_FOUND",
@@ -427,9 +414,6 @@ exports.cancelApplication = async (req, res) => {
 // POST /api/jobs/:id/assign → Assign worker to a job
 exports.assignWorker = async (req, res) => {
     try {
-        console.log('assignWorker called for job:', req.params.id);
-        console.log('Request body:', req.body);
-        
         const job = await Job.findById(req.params.id).populate('postedBy');
         if (!job) {
             console.log('Job not found:', req.params.id);
@@ -828,10 +812,6 @@ exports.completeJob = async (req, res) => {
 // PUT /api/jobs/:id → Edit a job
 exports.editJob = async (req, res) => {
     try {
-        console.log('editJob called for job ID:', req.params.id);
-        console.log('User ID attempting edit:', req.user.id);
-        console.log('User type:', req.user.userType);
-        
         // Get the job with populated postedBy field
         const job = await Job.findById(req.params.id).populate('postedBy', '_id');
         if (!job) {
@@ -923,32 +903,14 @@ exports.editJob = async (req, res) => {
 // DELETE /api/jobs/:id → Delete a job
 exports.deleteJob = async (req, res) => {
     try {
-        console.log('deleteJob called for job ID:', req.params.id);
-        console.log('User ID attempting deletion:', req.user.id);
-        
         const job = await Job.findById(req.params.id);
         if (!job) {
-            console.log('Job not found for deletion - already deleted');
             // Instead of error, return success (idempotent delete)
             return res.status(200).json({
                 message: "Job already deleted",
                 alert: "Job has been deleted"
             });
         }
-
-        console.log('Job found:', {
-            jobId: job._id,
-            postedBy: job.postedBy ? job.postedBy.toString() : 'undefined',
-            postedByType: job.postedBy ? typeof job.postedBy : 'undefined',
-            postedByIsObjectId: job.postedBy ? job.postedBy instanceof mongoose.Types.ObjectId : false,
-            title: job.title
-        });
-
-        console.log('User attempting deletion:', {
-            userId: req.user.id,
-            userIdType: typeof req.user.id,
-            userType: req.user.userType
-        });
 
         // Get the string representations for safe comparison
         const jobOwnerId = job.postedBy ? job.postedBy.toString() : '';
@@ -1020,9 +982,6 @@ exports.deleteJob = async (req, res) => {
 // POST /api/jobs/:id/reject → Reject an application
 exports.rejectApplication = async (req, res) => {
   try {
-    console.log('rejectApplication called for job:', req.params.id);
-    console.log('Request body:', req.body);
-    
     const job = await Job.findById(req.params.id).populate('postedBy');
     if (!job) {
       console.log('Job not found:', req.params.id);

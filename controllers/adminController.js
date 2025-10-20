@@ -125,8 +125,6 @@ exports.deleteUser = async (req, res) => {
 // Edit user
 exports.editUser = async (req, res) => {
     try {
-        console.log('Editing user:', req.params.id, 'with data:', req.body);
-        
         const originalUser = await User.findById(req.params.id);
         if (!originalUser) {
             return res.status(404).json({ 
@@ -310,8 +308,6 @@ exports.deleteJob = async (req, res) => {
 // Edit job
 exports.editJob = async (req, res) => {
     try {
-        console.log('Editing job:', req.params.id, 'with data:', req.body);
-        
         const originalJob = await Job.findById(req.params.id);
         if (!originalJob) {
             return res.status(404).json({ 

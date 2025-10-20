@@ -6,9 +6,6 @@ let transporter = null;
 
 const createTransporter = () => {
   if (!transporter) {
-    console.log('📧 Initializing Nodemailer transporter');
-    console.log(`📧 Email settings: Host=${process.env.EMAIL_HOST || "smtp.gmail.com"}, Port=${process.env.EMAIL_PORT || "587"}, User=${process.env.EMAIL_USER}`);
-    
     transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST || "smtp.gmail.com",
       port: parseInt(process.env.EMAIL_PORT || "587"),
@@ -34,14 +31,10 @@ const createTransporter = () => {
  */
 const sendVerificationEmail = async (email, token) => {
   try {
-    console.log(`📧 Attempting to send verification email to ${email}`);
-    
     // Get the first URL if multiple are provided (comma-separated)
     const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",")[0].trim() : 'https://resi-frontend.vercel.app';
-    console.log(`🔗 Using frontend URL: ${frontendUrl}`);
     
     const verificationLink = `${frontendUrl}/verify-email/${token}`;
-    console.log(`🔗 Verification link: ${verificationLink}`);
     
     const emailContent = {
       to: email,
@@ -115,21 +108,16 @@ const sendVerificationEmail = async (email, token) => {
 
     // Check if email credentials are configured
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error(`❌ No email configuration available`);
       throw new Error("Email service not configured - EMAIL_USER and EMAIL_PASS are required");
     }
-    
-    console.log(`📨 Sending verification email via Nodemailer SMTP`);
     
     const transporter = createTransporter();
     
     // Verify connection configuration
     await transporter.verify();
-    console.log('✅ SMTP connection verified');
     
     // Send email
     await transporter.sendMail(emailContent);
-    console.log(`✅ Verification email sent to ${email} via SMTP`);
     return true;
   } catch (error) {
     console.error(`❌ Verification email error: ${error.message}`);
@@ -145,11 +133,8 @@ const sendVerificationEmail = async (email, token) => {
  */
 const sendResetEmail = async (to, resetLink) => {
   try {
-    console.log(`📧 Attempting to send reset email to ${to}`);
-    
     // Get the first URL if multiple are provided (comma-separated)
     const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",")[0].trim() : 'https://resi-frontend.vercel.app';
-    console.log(`🔗 Using frontend URL: ${frontendUrl}`);
     
     // If resetLink doesn't have a full URL, add the frontend URL
     if (!resetLink.startsWith("http")) {
@@ -229,21 +214,16 @@ const sendResetEmail = async (to, resetLink) => {
 
     // Check if email credentials are configured
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error(`❌ No email configuration available`);
       throw new Error("Email service not configured - EMAIL_USER and EMAIL_PASS are required");
     }
-    
-    console.log(`� Sending password reset email via Nodemailer SMTP`);
     
     const transporter = createTransporter();
     
     // Verify connection configuration
     await transporter.verify();
-    console.log('✅ SMTP connection verified');
     
     // Send email
     await transporter.sendMail(emailContent);
-    console.log(`✅ Password reset email sent to ${to} via SMTP`);
     return true;
   } catch (error) {
     console.error(`❌ Password reset email error: ${error.message}`);
@@ -256,29 +236,17 @@ const sendResetEmail = async (to, resetLink) => {
 const verifyConnection = async () => {
   const hasEmailConfig = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
   
-  console.log(`📧 Email configuration check:`);
-  console.log(`- Email configured: ${hasEmailConfig}`);
-  console.log(`- FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
-  console.log(`- EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set'}`);
-  console.log(`- EMAIL_HOST: ${process.env.EMAIL_HOST || 'smtp.gmail.com'}`);
-  console.log(`- EMAIL_PORT: ${process.env.EMAIL_PORT || '587'}`);
-  console.log(`- EMAIL_USER: ${process.env.EMAIL_USER ? '***configured***' : 'not set'}`);
-  console.log(`- EMAIL_PASS: ${process.env.EMAIL_PASS ? '***configured***' : 'not set'}`);
-  
   // Test SMTP connection if configured
   if (hasEmailConfig) {
     try {
       const transporter = createTransporter();
       await transporter.verify();
-      console.log('✅ SMTP connection verified successfully');
       return true;
     } catch (error) {
-      console.error('❌ SMTP connection test failed:', error.message);
       return false;
     }
   }
   
-  console.warn('⚠️ No email configuration found');
   return false;
 };
 
