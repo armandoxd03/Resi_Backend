@@ -67,3 +67,11 @@ Desktop.ini
 /.vscode
 *.swp
 *.swo
+
+# Vercel
+.vercel
+
+# Render (if switching back)
+render-build.sh
+render.yaml
+render-env-setup.md
