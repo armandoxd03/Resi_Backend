@@ -216,7 +216,5 @@ if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   process.on('SIGINT', gracefulShutdown);
 }
 
-// ✅ Export handler for Vercel serverless
-module.exports = (req, res) => {
-  return app(req, res);
-};
+// ✅ Export app for Vercel serverless
+module.exports = app;
