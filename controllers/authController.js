@@ -50,43 +50,23 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(req.body.password, 10);
         const verificationToken = crypto.randomBytes(20).toString('hex');
 
-        // Process files - store file paths instead of base64 for better performance
+        // Process files - Cloudinary URLs are automatically stored by multer-storage-cloudinary
         let profilePicture = '';
         let idFrontImage = '';
         let idBackImage = '';
         
         if (req.files) {
-            // Store relative file paths for disk storage
+            // Cloudinary middleware stores files and provides the URL in file.path
             if (req.files.profilePicture && req.files.profilePicture[0]) {
-                if (req.files.profilePicture[0].path) {
-                    // Extract relative path from uploads directory
-                    const fullPath = req.files.profilePicture[0].path.replace(/\\/g, '/');
-                    const relativePath = fullPath.split('/uploads/')[1];
-                    profilePicture = relativePath ? `uploads/${relativePath}` : fullPath;
-                } else if (req.files.profilePicture[0].buffer) {
-                    // For memory storage (e.g., Render), convert to base64 as fallback
-                    profilePicture = `data:${req.files.profilePicture[0].mimetype};base64,${req.files.profilePicture[0].buffer.toString('base64')}`;
-                }
+                profilePicture = req.files.profilePicture[0].path; // Cloudinary URL
             }
 
             if (req.files.idFrontImage && req.files.idFrontImage[0]) {
-                if (req.files.idFrontImage[0].path) {
-                    const fullPath = req.files.idFrontImage[0].path.replace(/\\/g, '/');
-                    const relativePath = fullPath.split('/uploads/')[1];
-                    idFrontImage = relativePath ? `uploads/${relativePath}` : fullPath;
-                } else if (req.files.idFrontImage[0].buffer) {
-                    idFrontImage = `data:${req.files.idFrontImage[0].mimetype};base64,${req.files.idFrontImage[0].buffer.toString('base64')}`;
-                }
+                idFrontImage = req.files.idFrontImage[0].path; // Cloudinary URL
             }
 
             if (req.files.idBackImage && req.files.idBackImage[0]) {
-                if (req.files.idBackImage[0].path) {
-                    const fullPath = req.files.idBackImage[0].path.replace(/\\/g, '/');
-                    const relativePath = fullPath.split('/uploads/')[1];
-                    idBackImage = relativePath ? `uploads/${relativePath}` : fullPath;
-                } else if (req.files.idBackImage[0].buffer) {
-                    idBackImage = `data:${req.files.idBackImage[0].mimetype};base64,${req.files.idBackImage[0].buffer.toString('base64')}`;
-                }
+                idBackImage = req.files.idBackImage[0].path; // Cloudinary URL
             }
         }
 

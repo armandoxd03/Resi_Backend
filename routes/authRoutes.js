@@ -1,19 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const upload = require('../middleware/upload');
+const { uploadRegistration } = require('../middleware/cloudinaryUpload');
 const { registerValidation } = require('../middleware/validate');
 const auth = require('../middleware/auth');
 const { loginLimiter } = require('../middleware/rateLimit');
 const tokenCacheControl = require('../middleware/tokenCacheControl');
 
-// Registration (no rate limit)
+// Registration (no rate limit) - Using Cloudinary upload
 router.post('/register',
-  upload.fields([
-    { name: 'idFrontImage', maxCount: 1 },
-    { name: 'idBackImage', maxCount: 1 },
-    { name: 'profilePicture', maxCount: 1 }
-  ]),
+  uploadRegistration,
   registerValidation,
   authController.register
 );

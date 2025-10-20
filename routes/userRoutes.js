@@ -1,16 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const upload = require('../middleware/upload');
+const { uploadProfilePicture } = require('../middleware/cloudinaryUpload');
 const auth = require('../middleware/auth');
 
 // User Profile
 router.get('/me', auth.verify, userController.getProfile);
 
-// Profile update with file upload support
+// Profile update with Cloudinary file upload support
 router.put('/me', 
     auth.verify,
-    upload.single('profilePicture'),
+    uploadProfilePicture,
     userController.editProfile
 );
 
