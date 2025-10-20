@@ -5,6 +5,7 @@ const cors = require("cors");
 const path = require("path");
 const errorHandler = require("./middleware/errorHandler");
 const { apiLimiter } = require("./middleware/rateLimit");
+const connectDB = require("./utils/db");
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
@@ -26,37 +27,22 @@ const softDeleteRoutes = require('./routes/softDeleteRoutes');
 const { createNotification } = require('./utils/notificationHelper');
 
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb+srv://resilinked_db_admin:dDJwBzfpJvaBUQqt@resilinked.bddvynh.mongodb.net/ResiLinked?retryWrites=true&w=majority";
 
-// ✅ MongoDB Connection
-mongoose
-  .connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 60000,  // Increased timeout for Render
-    socketTimeoutMS: 90000,
-    maxPoolSize: 15,
-    connectTimeoutMS: 60000
-    // Removed unsupported keepAlive options
-  })
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err);
-    console.error(err.stack);
-    // Don't exit in production to allow retries
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
-  });
+// ✅ Connect to MongoDB (reuses connection in serverless)
+connectDB().catch(err => {
+  console.error("❌ Initial MongoDB connection failed:", err.message);
+  // Don't exit - let it retry on next request
+});
 
 // App Initialization
 const app = express();
 // Fix: Trust proxy for correct rate limiting behind Render/other proxies
 app.set('trust proxy', 1);
 
-// ✅ CORS (allow React frontend in dev)
+// ✅ CORS (allow React frontend in dev and Vercel deployments)
 let allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173").split(',').map(origin => origin.trim());
 
-// Ensure localhost:5173 is always allowed for development
+// Ensure localhost is always allowed for development
 if (!allowedOrigins.includes('http://localhost:5173')) {
   allowedOrigins.push('http://localhost:5173');
 }
@@ -68,19 +54,25 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Check if origin is allowed
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else if (origin.includes('localhost')) {
-      // Always allow localhost for development
+    // Allow localhost (development)
+    if (origin.includes('localhost')) {
       console.log("🔓 CORS allowing localhost origin:", origin);
-      callback(null, true);
-    } else {
-      console.log("❌ CORS blocked origin:", origin);
-      // In production, we should block unauthorized origins
-      // For now, allow all origins to debug
-      callback(null, true); 
+      return callback(null, true);
     }
+    
+    // Allow all Vercel deployments (vercel.app domain)
+    if (origin.includes('vercel.app')) {
+      console.log("🔓 CORS allowing Vercel origin:", origin);
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    
+    console.log("❌ CORS blocked origin:", origin);
+    callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cache-Control', 'cache-control', 'Pragma'],
@@ -201,54 +193,28 @@ app.get("/health", async (req, res) => {
 // ✅ Global error handler (must be last)
 app.use(errorHandler);
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err);
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
-
-// Only start server if not running on Vercel (Vercel handles this automatically)
-if (process.env.VERCEL !== '1') {
-  // Server listen with increased timeouts
+// Only start local server if NOT on Vercel
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   const server = app.listen(PORT, () => {
-    server.timeout = 120000; // 2 minutes
-    server.keepAliveTimeout = 65000; // slightly higher than the ALB idle timeout
-    server.headersTimeout = 66000; // slightly higher than keepAliveTimeout
-    
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌍 CORS: Allowing ${process.env.CORS_ORIGIN || "http://localhost:5173"}`);
     console.log("💓 Health check endpoint: /health");
   });
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    if (server && server.close) {
-      server.close(() => {
-        mongoose.connection.close();
+  // Graceful shutdown for local development
+  const gracefulShutdown = () => {
+    console.log('Shutting down gracefully...');
+    server.close(() => {
+      mongoose.connection.close(false, () => {
         console.log('Process terminated');
+        process.exit(0);
       });
-    } else {
-      mongoose.connection.close();
-      console.log('Process terminated (no active server)');
-      process.exit(0);
-    }
-  });
+    });
+  };
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 }
 
-// Handle CTRL+C
-process.on('SIGINT', () => {
-  console.log('SIGINT received (Ctrl+C), shutting down gracefully');
-  mongoose.connection.close();
-  console.log('Process terminated');
-  process.exit(0);
-});
-
-// Export app for Vercel serverless
+// Export app for Vercel serverless / AWS Lambda
 module.exports = app;
