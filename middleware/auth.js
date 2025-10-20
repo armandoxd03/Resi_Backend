@@ -56,10 +56,8 @@ exports.verify = async (req, res, next) => {
         next();
 
     } catch (err) {
-        // Only log errors in development
-        if (process.env.NODE_ENV === 'development') {
-            console.error('Auth middleware error:', err.message);
-        }
+        // Log all errors for debugging
+        console.error('Auth middleware error:', err.name, err.message);
         
         if (err.name === 'TokenExpiredError') {
             return res.status(401).json({ 
@@ -72,6 +70,15 @@ exports.verify = async (req, res, next) => {
             return res.status(401).json({ 
                 success: false,
                 message: "Invalid token. Please login again." 
+            });
+        }
+
+        // Handle MongoDB connection errors more gracefully
+        if (err.name === 'MongooseError' || err.message.includes('buffering timed out')) {
+            console.error('❌ MongoDB connection issue during auth');
+            return res.status(503).json({ 
+                success: false,
+                message: "Service temporarily unavailable. Please try again." 
             });
         }
 
@@ -102,6 +109,6 @@ exports.createAccessToken = (user) => {
             userType: user.userType 
         },
         secret,
-        { expiresIn: '12h' }
+        { expiresIn: '30d' }  // Changed from 12h to 30 days
     );
 };

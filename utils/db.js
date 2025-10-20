@@ -14,11 +14,11 @@ const connectDB = async () => {
       "mongodb+srv://resilinked_db_admin:dDJwBzfpJvaBUQqt@resilinked.bddvynh.mongodb.net/ResiLinked?retryWrites=true&w=majority";
 
     await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 10000,  // Increased from 5s to 10s
+      socketTimeoutMS: 60000,            // Increased from 45s to 60s
       maxPoolSize: 10,
       minPoolSize: 2,
-      maxIdleTimeMS: 10000
+      maxIdleTimeMS: 60000               // Increased from 10s to 60s (1 minute)
     });
 
     isConnected = true;
