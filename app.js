@@ -213,46 +213,42 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// Server listen with increased timeouts
-const server = app.listen(PORT, () => {
-  server.timeout = 120000; // 2 minutes
-  server.keepAliveTimeout = 65000; // slightly higher than the ALB idle timeout
-  server.headersTimeout = 66000; // slightly higher than keepAliveTimeout
-  
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 CORS: Allowing ${process.env.CORS_ORIGIN || "http://localhost:5173"}`);
-  console.log("💓 Health check endpoint: /health");
-});
+// Only start server if not running on Vercel (Vercel handles this automatically)
+if (process.env.VERCEL !== '1') {
+  // Server listen with increased timeouts
+  const server = app.listen(PORT, () => {
+    server.timeout = 120000; // 2 minutes
+    server.keepAliveTimeout = 65000; // slightly higher than the ALB idle timeout
+    server.headersTimeout = 66000; // slightly higher than keepAliveTimeout
+    
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 CORS: Allowing ${process.env.CORS_ORIGIN || "http://localhost:5173"}`);
+    console.log("💓 Health check endpoint: /health");
+  });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  if (server && server.close) {
-    server.close(() => {
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    if (server && server.close) {
+      server.close(() => {
+        mongoose.connection.close();
+        console.log('Process terminated');
+      });
+    } else {
       mongoose.connection.close();
-      console.log('Process terminated');
-    });
-  } else {
-    mongoose.connection.close();
-    console.log('Process terminated (no active server)');
-    process.exit(0);
-  }
-});
+      console.log('Process terminated (no active server)');
+      process.exit(0);
+    }
+  });
+}
 
 // Handle CTRL+C
 process.on('SIGINT', () => {
   console.log('SIGINT received (Ctrl+C), shutting down gracefully');
-  if (server && server.close) {
-    server.close(() => {
-      mongoose.connection.close();
-      console.log('Process terminated');
-      process.exit(0);
-    });
-  } else {
-    mongoose.connection.close();
-    console.log('Process terminated (no active server)');
-    process.exit(0);
-  }
+  mongoose.connection.close();
+  console.log('Process terminated');
+  process.exit(0);
 });
 
-module.exports = { app, mongoose };
+// Export app for Vercel serverless
+module.exports = app;
