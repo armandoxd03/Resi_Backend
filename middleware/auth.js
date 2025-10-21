@@ -3,6 +3,11 @@ const User = require('../models/User');
 
 const secret = process.env.JWT_SECRET || "resilinked-secret";
 
+// Log warning if default secret is used
+if (!process.env.JWT_SECRET) {
+    console.warn("⚠️ WARNING: Using default JWT secret. Set JWT_SECRET in environment variables!");
+}
+
 // Verify JWT and attach user info
 exports.verify = async (req, res, next) => {
     try {

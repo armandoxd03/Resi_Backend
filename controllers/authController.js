@@ -156,16 +156,21 @@ exports.register = async (req, res) => {
 // Login
 exports.login = async (req, res) => {
     try {
+        console.log("🔐 Login attempt for:", req.body.email);
+        
         const { email, password } = req.body;
         if (!email || !password) {
+            console.log("❌ Missing email or password");
             return res.status(400).json({
                 message: "Email and password are required",
                 alert: "Please provide email and password"
             });
         }
 
+        console.log("📋 Finding user in database...");
         const user = await User.findOne({ email });
         if (!user) {
+            console.log("❌ User not found:", email);
             return res.status(404).json({
                 success: false,
                 message: "User not found",
@@ -173,13 +178,15 @@ exports.login = async (req, res) => {
             });
         }
 
+        console.log("🔍 Comparing password...");
         const isMatch = bcrypt.compareSync(password, user.password);
         if (!isMatch) {
+            console.log("❌ Password mismatch for:", email);
             user.loginAttempts = (user.loginAttempts || 0) + 1;
             await user.save();
 
-            // ✅ LOG ACTIVITY: Failed login attempt
-            await createActivityLog({
+            // ✅ LOG ACTIVITY: Failed login attempt (don't await to prevent blocking)
+            createActivityLog({
               userId: user._id,
               userName: `${user.firstName} ${user.lastName}`,
               type: 'security_alert',
@@ -188,17 +195,17 @@ exports.login = async (req, res) => {
                 attempt: user.loginAttempts,
                 email: email
               }
-            });
+            }).catch(err => console.error("Activity log error:", err));
 
             if (user.loginAttempts >= 3) {
-                await createNotification({
+                createNotification({
                     recipient: user._id,
                     type: 'security_alert',
                     message: 'Multiple failed login attempts detected'
-                });
+                }).catch(err => console.error("Notification error:", err));
 
                 // ✅ LOG ACTIVITY: Multiple failed attempts
-                await createActivityLog({
+                createActivityLog({
                   userId: user._id,
                   userName: `${user.firstName} ${user.lastName}`,
                   type: 'security_alert',
@@ -207,7 +214,7 @@ exports.login = async (req, res) => {
                     attempts: user.loginAttempts,
                     locked: user.loginAttempts >= 5
                   }
-                });
+                }).catch(err => console.error("Activity log error:", err));
             }
 
             return res.status(401).json({
@@ -219,8 +226,9 @@ exports.login = async (req, res) => {
         }
 
         if (!user.isVerified) {
+            console.log("⚠️ Unverified account:", email);
             // ✅ LOG ACTIVITY: Attempt to login unverified account
-            await createActivityLog({
+            createActivityLog({
               userId: user._id,
               userName: `${user.firstName} ${user.lastName}`,
               type: 'email_verification',
@@ -229,7 +237,7 @@ exports.login = async (req, res) => {
                 email: user.email,
                 verified: false
               }
-            });
+            }).catch(err => console.error("Activity log error:", err));
 
             return res.status(403).json({
                 success: false,
@@ -238,20 +246,23 @@ exports.login = async (req, res) => {
             });
         }
 
+        console.log("✅ User authenticated, updating login data...");
         user.loginAttempts = 0;
         user.lastLogin = new Date();
         await user.save();
 
+        console.log("🔑 Creating access token...");
         const token = createAccessToken(user);
 
-        await createNotification({
+        // Don't await these non-critical operations
+        createNotification({
             recipient: user._id,
             type: 'security_alert',
             message: 'New login detected'
-        });
+        }).catch(err => console.error("Notification error:", err));
 
         // ✅ LOG ACTIVITY: Successful login
-        await createActivityLog({
+        createActivityLog({
           userId: user._id,
           userName: `${user.firstName} ${user.lastName}`,
           type: 'login',
@@ -260,8 +271,9 @@ exports.login = async (req, res) => {
             loginTime: new Date(),
             userType: user.userType
           }
-        });
+        }).catch(err => console.error("Activity log error:", err));
 
+        console.log("✅ Login successful for:", email);
         res.status(200).json({
             success: true,
             token,
@@ -272,7 +284,13 @@ exports.login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Login error:", error);
+        console.error("❌ Login error:", error);
+        console.error("Error stack:", error.stack);
+        console.error("Error details:", {
+            name: error.name,
+            message: error.message,
+            code: error.code
+        });
         res.status(500).json({
             success: false,
             message: "Login error",
