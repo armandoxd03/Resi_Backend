@@ -39,7 +39,9 @@ router.post('/register',
 );
 
 // Login with rate limiting
-router.post('/login', ensureDBConnection, loginLimiter, authController.login);
+// TEMPORARY: Disable middleware to isolate issue
+router.post('/login', authController.login);
+// router.post('/login', ensureDBConnection, loginLimiter, authController.login);
 
 // Token verification (no rate limit)
 router.get('/verify', tokenCacheControl, auth.verify, authController.verifyToken);
