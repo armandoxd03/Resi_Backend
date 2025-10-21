@@ -1,21 +1,26 @@
 // Lazy load Google Generative AI to avoid crashes if API key is missing
 let GoogleGenerativeAI, genAI;
 
+// Wrap the entire require in try-catch to prevent module loading failure
 try {
-  GoogleGenerativeAI = require('@google/generative-ai').GoogleGenerativeAI;
-  // Only initialize if API key exists
-  if (process.env.GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const generativeAI = require('@google/generative-ai');
+  if (generativeAI && generativeAI.GoogleGenerativeAI) {
+    GoogleGenerativeAI = generativeAI.GoogleGenerativeAI;
+    // Only initialize if API key exists
+    if (process.env.GEMINI_API_KEY) {
+      genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    }
   }
 } catch (error) {
   console.warn('⚠️ Google Generative AI package not loaded:', error.message);
+  // Continue without AI - will fall back to pattern matching
 }
 
 /**
  * CHATBOT QUERY
  * Handle chatbot queries using Google Gemini AI
  */
-exports.chatbotQuery = async (req, res) => {
+const chatbotQuery = async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body;
 
@@ -186,4 +191,6 @@ function getFallbackResponse(message) {
   return "I'm here to help! 😊\n\nI can assist you with:\n• How ResiLinked works\n• Finding or posting jobs\n• Reporting issues\n• Safety tips\n• Account help\n\nWhat would you like to know?";
 }
 
-module.exports = exports;
+module.exports = {
+  chatbotQuery
+};
