@@ -1,7 +1,19 @@
 // Vercel serverless function entry point
-const app = require('../app');
+// Wrap with try-catch to diagnose loading errors
+let app;
+let appLoadError;
 
-// Wrap the app to ensure CORS headers are ALWAYS sent, even on crashes
+try {
+  app = require('../app');
+} catch (error) {
+  console.error('❌ CRITICAL: Failed to load app.js:', {
+    message: error.message,
+    stack: error.stack,
+    code: error.code
+  });
+  appLoadError = error;
+}
+
 module.exports = async (req, res) => {
   try {
     // Set CORS headers immediately - BEFORE anything else
@@ -19,6 +31,22 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.status(200).end();
       return;
+    }
+
+    // If app failed to load, return detailed error
+    if (appLoadError) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to initialize backend',
+        error: appLoadError.message,
+        stack: process.env.NODE_ENV === 'production' ? undefined : appLoadError.stack,
+        alert: 'Server initialization failed. Please contact support.',
+        debug: {
+          nodeVersion: process.version,
+          platform: process.platform,
+          env: process.env.VERCEL_ENV || 'unknown'
+        }
+      });
     }
 
     // Pass to Express app
