@@ -1,7 +1,15 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+// Lazy load Google Generative AI to avoid crashes if API key is missing
+let GoogleGenerativeAI, genAI;
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+try {
+  GoogleGenerativeAI = require('@google/generative-ai').GoogleGenerativeAI;
+  // Only initialize if API key exists
+  if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  }
+} catch (error) {
+  console.warn('⚠️ Google Generative AI package not loaded:', error.message);
+}
 
 /**
  * CHATBOT QUERY
