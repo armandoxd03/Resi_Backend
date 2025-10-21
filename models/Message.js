@@ -33,6 +33,16 @@ const messageSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  seenBy: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    seenAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   parentMessage: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message',

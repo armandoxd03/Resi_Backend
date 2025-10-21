@@ -318,3 +318,57 @@ exports.getUnreadCount = async (req, res) => {
     });
   }
 };
+
+/**
+ * MARK MESSAGES AS SEEN
+ * Mark messages in a conversation as seen by the recipient
+ */
+exports.markAsSeen = async (req, res) => {
+  try {
+    const { messageIds } = req.body;
+
+    if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No message IDs provided'
+      });
+    }
+
+    // Update messages where the current user is the recipient
+    const result = await Message.updateMany(
+      {
+        _id: { $in: messageIds },
+        recipient: req.user.id,
+        'seenBy.user': { $ne: req.user.id }
+      },
+      {
+        $push: {
+          seenBy: {
+            user: req.user.id,
+            seenAt: new Date()
+          }
+        },
+        $set: {
+          isRead: true,
+          readAt: new Date()
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Messages marked as seen',
+      data: {
+        modifiedCount: result.modifiedCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Mark as seen error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark messages as seen',
+      error: error.message
+    });
+  }
+};

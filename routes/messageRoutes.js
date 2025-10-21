@@ -21,6 +21,9 @@ router.get('/conversation/:userId', messageController.getConversation);
 // Mark message as read
 router.patch('/:messageId/read', messageController.markAsRead);
 
+// Mark messages as seen
+router.post('/seen', messageController.markAsSeen);
+
 // Delete message
 router.delete('/:messageId', messageController.deleteMessage);
 
