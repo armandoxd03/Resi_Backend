@@ -11,13 +11,20 @@ const connectDB = require('../utils/db');
 // Middleware to ensure DB connection
 const ensureDBConnection = async (req, res, next) => {
   try {
+    console.log('🔌 Ensuring DB connection for:', req.method, req.path);
     await connectDB();
+    console.log('✅ DB connection verified');
     next();
   } catch (error) {
-    console.error("❌ Database connection failed:", error);
+    console.error("❌ Database connection failed:", {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     return res.status(503).json({
       success: false,
       message: "Database connection error",
+      error: error.message,
       alert: "Service temporarily unavailable. Please try again."
     });
   }
