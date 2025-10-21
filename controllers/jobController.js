@@ -559,19 +559,24 @@ exports.search = async (req, res) => {
 
 exports.getPopularJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ isOpen: true })
+    const jobs = await Job.find({ isOpen: true, isDeleted: false })
       .populate('postedBy', 'firstName lastName')
       .sort({ applicants: -1, datePosted: -1 })
-      .limit(10);
+      .limit(10)
+      .lean()
+      .maxTimeMS(5000);
     
     res.status(200).json({
       success: true,
-      jobs
+      jobs: jobs || []
     });
   } catch (err) {
+    console.error('Error fetching popular jobs:', err);
     res.status(500).json({
+      success: false,
       message: "Error fetching popular jobs",
-      error: err.message
+      error: err.message,
+      jobs: []
     });
   }
 };

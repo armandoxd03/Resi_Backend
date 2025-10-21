@@ -40,10 +40,10 @@ exports.createNotification = async (req, res) => {
 
 exports.getMyNotifications = async (req, res) => {
     try {
-        const { type, isRead, page = 1, limit = 10 } = req.query;
+        const { type, isRead, page = 1, limit = 20 } = req.query;
 
         const pageNum = parseInt(page, 10) || 1;
-        const limitNum = parseInt(limit, 10) || 10;
+        const limitNum = Math.min(parseInt(limit, 10) || 20, 50);
 
         let query = { recipient: req.user.id };
         if (type) query.type = type;
@@ -53,24 +53,26 @@ exports.getMyNotifications = async (req, res) => {
             Notification.find(query)
                 .sort({ createdAt: -1 })
                 .skip((pageNum - 1) * limitNum)
-                .limit(limitNum),
-            Notification.countDocuments(query),
+                .limit(limitNum)
+                .lean()
+                .maxTimeMS(5000),
+            Notification.countDocuments(query).maxTimeMS(3000),
             Notification.countDocuments({ 
                 recipient: req.user.id, 
                 isRead: false 
-            })
+            }).maxTimeMS(3000)
         ]);
 
         res.status(200).json({
             success: true,
-            data: notifications,
+            data: notifications || [],
             meta: {
-                total,
-                unreadCount,
+                total: total || 0,
+                unreadCount: unreadCount || 0,
                 pagination: {
                     page: pageNum,
                     limit: limitNum,
-                    pages: Math.ceil(total / limitNum)
+                    pages: Math.ceil((total || 0) / limitNum)
                 }
             },
             alert: unreadCount > 0 
@@ -78,10 +80,14 @@ exports.getMyNotifications = async (req, res) => {
                 : "No new notifications"
         });
     } catch (err) {
+        console.error('Error fetching notifications:', err);
         res.status(500).json({ 
+            success: false,
             message: "Error fetching notifications", 
             error: err.message,
-            alert: "Failed to load notifications"
+            alert: "Failed to load notifications",
+            data: [],
+            meta: { total: 0, unreadCount: 0, pagination: { page: 1, limit: 20, pages: 0 } }
         });
     }
 };
