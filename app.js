@@ -85,10 +85,18 @@ app.use(cors({
 app.use((req, res, next) => {
   // Allow localhost:5173 explicitly for development
   const origin = req.headers.origin;
-  if (origin && (origin.includes('localhost') || allowedOrigins.includes(origin))) {
+  
+  // Allow all vercel.app domains and localhost
+  if (origin && (origin.includes('localhost') || origin.includes('vercel.app'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (origin) {
+    // For any other origin, allow it (can be restricted later)
     res.header('Access-Control-Allow-Origin', origin);
   } else {
-    res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+    // No origin header, allow all
+    res.header('Access-Control-Allow-Origin', '*');
   }
   
   // Handle preflight OPTIONS requests
