@@ -24,7 +24,7 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const exportRoutes = require('./routes/exportRoutes');
 const softDeleteRoutes = require('./routes/softDeleteRoutes');
-const chatbotRoutes = require('./routes/chatbotRoutes');
+// REMOVED: const chatbotRoutes = require('./routes/chatbotRoutes');
 const { createNotification } = require('./utils/notificationHelper');
 
 const PORT = process.env.PORT || 5000;
@@ -153,7 +153,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/export", exportRoutes);
 app.use("/api/admin/soft-delete", softDeleteRoutes);
-app.use("/api/chatbot", chatbotRoutes);
+// REMOVED: app.use("/api/chatbot", chatbotRoutes);
 
 // Test notification endpoint for debugging
 app.post("/api/test-notification", async (req, res) => {
@@ -220,74 +220,11 @@ app.use(errorHandler);
 if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   const http = require('http');
   const server = http.createServer(app);
-  const { Server } = require('socket.io');
-  
-  const io = new Server(server, {
-    cors: {
-      origin: function(origin, callback) {
-        if (!origin) return callback(null, true);
-        if (origin.includes('localhost') || origin.includes('vercel.app') || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        callback(new Error('Not allowed by CORS'));
-      },
-      credentials: true
-    }
-  });
-
-  // Store connected users
-  const connectedUsers = new Map();
-
-  io.on('connection', (socket) => {
-    console.log('👤 User connected:', socket.id);
-
-    // User joins with their ID
-    socket.on('join', (userId) => {
-      connectedUsers.set(userId, socket.id);
-      console.log(`✅ User ${userId} joined with socket ${socket.id}`);
-    });
-
-    // Send message in real-time
-    socket.on('send_message', (data) => {
-      const recipientSocketId = connectedUsers.get(data.recipientId);
-      if (recipientSocketId) {
-        io.to(recipientSocketId).emit('receive_message', data.message);
-        console.log(`📨 Message sent to ${data.recipientId}`);
-      }
-    });
-
-    // Mark message as seen
-    socket.on('message_seen', (data) => {
-      const senderSocketId = connectedUsers.get(data.senderId);
-      if (senderSocketId) {
-        io.to(senderSocketId).emit('message_marked_seen', {
-          messageId: data.messageId,
-          seenBy: data.seenBy
-        });
-        console.log(`✅ Seen notification sent to ${data.senderId}`);
-      }
-    });
-
-    socket.on('disconnect', () => {
-      // Remove user from connected users
-      for (const [userId, socketId] of connectedUsers.entries()) {
-        if (socketId === socket.id) {
-          connectedUsers.delete(userId);
-          console.log(`👋 User ${userId} disconnected`);
-          break;
-        }
-      }
-    });
-  });
-
-  // Make io accessible to routes
-  app.set('io', io);
 
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌍 CORS: Allowing ${process.env.CORS_ORIGIN || "http://localhost:5173"}`);
     console.log("💓 Health check endpoint: /health");
-    console.log("🔌 Socket.io enabled for real-time chat");
   });
 
   // Graceful shutdown for local development
