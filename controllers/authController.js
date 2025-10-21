@@ -280,6 +280,10 @@ exports.login = async (req, res) => {
             userId: user._id,
             userType: user.userType,
             isVerified: user.isVerified,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            profilePicture: user.profilePicture,
             alert: "Login successful"
         });
 
