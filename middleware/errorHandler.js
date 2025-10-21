@@ -8,6 +8,17 @@ const errorHandler = (err, req, res, next) => {
         timestamp: new Date().toISOString()
     });
 
+    // Ensure CORS headers are set even on errors
+    const origin = req.headers.origin;
+    if (origin) {
+        if (origin.includes('localhost') || origin.includes('vercel.app')) {
+            res.header('Access-Control-Allow-Origin', origin);
+            res.header('Access-Control-Allow-Credentials', 'true');
+            res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+            res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
+        }
+    }
+
     // Mongoose validation error
     if (err.name === 'ValidationError') {
         const errors = Object.values(err.errors).map(val => val.message);
