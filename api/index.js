@@ -1,15 +1,23 @@
 // Vercel serverless function entry point
-// Wrap with try-catch to diagnose loading errors
+// Ultra-defensive loading with detailed error tracking
+
+console.log('🚀 Vercel function starting...');
+console.log('📍 Node version:', process.version);
+console.log('📍 Platform:', process.platform);
+
 let app;
 let appLoadError;
 
 try {
+  console.log('📦 Attempting to load app.js...');
   app = require('../app');
+  console.log('✅ app.js loaded successfully');
 } catch (error) {
   console.error('❌ CRITICAL: Failed to load app.js:', {
     message: error.message,
     stack: error.stack,
-    code: error.code
+    code: error.code,
+    name: error.name
   });
   appLoadError = error;
 }
@@ -35,16 +43,21 @@ module.exports = async (req, res) => {
 
     // If app failed to load, return detailed error
     if (appLoadError) {
+      console.error('❌ Returning app load error to client');
       return res.status(500).json({
         success: false,
         message: 'Failed to initialize backend',
         error: appLoadError.message,
-        stack: process.env.NODE_ENV === 'production' ? undefined : appLoadError.stack,
-        alert: 'Server initialization failed. Please contact support.',
+        errorName: appLoadError.name,
+        errorCode: appLoadError.code,
+        stack: appLoadError.stack,
+        alert: 'Server initialization failed. Check Vercel logs for details.',
         debug: {
           nodeVersion: process.version,
           platform: process.platform,
-          env: process.env.VERCEL_ENV || 'unknown'
+          env: process.env.VERCEL_ENV || 'unknown',
+          hasMongoUri: !!process.env.MONGODB_URI,
+          hasJwtSecret: !!process.env.JWT_SECRET
         }
       });
     }
@@ -78,7 +91,8 @@ module.exports = async (req, res) => {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: process.env.NODE_ENV === 'production' ? 'Server error' : error.message,
+        error: error.message,
+        stack: error.stack,
         alert: 'The server encountered an error. Please try again later.'
       });
     }
